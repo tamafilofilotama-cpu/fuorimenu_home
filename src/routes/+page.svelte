@@ -18,10 +18,34 @@
     const start = msg.indexOf(accentWord);
     const end   = start + accentWord.length;
     return msg.split('').map((letter, i) => ({
+      index:    i,
       letter,
       isSpace:  letter === ' ',
       isAccent: i >= start && i < end
     }));
+  }
+
+  function groupWords(characters: ReturnType<typeof parseMessage>) {
+    const groups: Array<
+      | { type: 'space'; index: number }
+      | { type: 'word'; index: number; characters: typeof characters }
+    > = [];
+
+    let word: typeof characters = [];
+    characters.forEach((character) => {
+      if (character.isSpace) {
+        if (word.length) {
+          groups.push({ type: 'word', index: word[0].index, characters: word });
+          word = [];
+        }
+        groups.push({ type: 'space', index: character.index });
+      } else {
+        word.push(character);
+      }
+    });
+
+    if (word.length) groups.push({ type: 'word', index: word[0].index, characters: word });
+    return groups;
   }
 
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina olimpica...';
@@ -29,6 +53,7 @@
   const brandWord       = 'Fuorimenu';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
+  const introWords      = groupWords(introCharacters);
 
   const brandLetters = brandWord.split('').map((letter, i) => ({ letter, i }));
   const brandOrder   = [...brandLetters.map((_, i) => i)].sort(() => Math.random() - 0.5);
@@ -212,12 +237,16 @@
 
   <section class="intro" aria-labelledby="intro-title">
     <h1 id="intro-title" aria-label={introMessage}>
-      {#each introCharacters as { letter, isSpace, isAccent }, index}
-        {#if isSpace}
+      {#each introWords as group (group.index)}
+        {#if group.type === 'space'}
           <span class="space" aria-hidden="true">&nbsp;</span>
         {:else}
-          <span bind:this={introLetters[index]} class:accent-letter={isAccent} aria-hidden="true"
-            >{letter}</span>
+          <span class="word" aria-hidden="true">
+            {#each group.characters as { letter, isAccent, index } (index)}
+              <span bind:this={introLetters[index]} class:accent-letter={isAccent}
+                >{letter}</span>
+            {/each}
+          </span>
         {/if}
       {/each}
     </h1>
@@ -347,6 +376,7 @@
     transition: opacity 140ms linear, transform 140ms ease-out;
     will-change: opacity, transform;
   }
+  h1 .word { white-space: nowrap; }
   h1 .space { opacity: 1; transform: none; transition: none; width: 0.28em; }
 
   .accent-letter { color: var(--accent-500, #FE4C00); font-style: italic; font-weight: 700; }
