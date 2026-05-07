@@ -2,43 +2,65 @@
   import { onMount } from 'svelte';
 
   let reelProgress = 0;
+  let pageProgress = 0;
+  let homeScreen: HTMLElement;
+  let nextScreen: HTMLElement;
   let reelCards: HTMLElement[] = [];
+  let nextLetters: HTMLElement[] = [];
+  const nextMessage = 'Incontra Le persone che hanno reso tutto questo possibile.';
+  const nextCharacters = nextMessage.split('').map((letter, index) => ({
+    letter,
+    isAccent: index >= nextMessage.indexOf('persone') && index < nextMessage.indexOf('persone') + 'persone'.length
+  }));
 
   const reels = [
-    { src: '', poster: '', bg: '#fe4c00', fromX: -8, fromY: 4, toX: -34, toY: -18, rotate: -8 },
-    { src: '', poster: '', bg: '#2a4484', fromX: 7, fromY: -3, toX: 30, toY: 16, rotate: 7 },
-    { src: '', poster: '', bg: '#fdc567', fromX: -4, fromY: -8, toX: -18, toY: 28, rotate: 10 },
-    { src: '', poster: '', bg: '#101318', fromX: 9, fromY: 8, toX: 36, toY: -24, rotate: -11 },
-    { src: '', poster: '', bg: '#5f6fa8', fromX: -10, fromY: -2, toX: -40, toY: 6, rotate: -5 }
+    { src: '/videos/tiramisu.mp4', poster: '', bg: '#f0f0f0', fromX: -8, fromY: 4, toX: -34, toY: -18, rotate: -8 },
+    { src: '/videos/1.mp4', poster: '', bg: '#2a4484', fromX: 7, fromY: -3, toX: 30, toY: 16, rotate: 7 },
+    { src: '/videos/2.mp4', poster: '', bg: '#fdc567', fromX: -4, fromY: -8, toX: -18, toY: 28, rotate: 10 },
+    { src: '/videos/3.mp4', poster: '', bg: '#101318', fromX: 9, fromY: 8, toX: 36, toY: -24, rotate: -11 },
+    { src: '/videos/4.mp4', poster: '', bg: '#5f6fa8', fromX: -10, fromY: -2, toX: -40, toY: 6, rotate: -5 }
   ];
 
   const clamp = (value: number, min = 0, max = 1) => Math.min(Math.max(value, min), max);
   const ease  = (value: number) => value * value * (3 - 2 * value);
 
   onMount(() => {
-    const updateProgress = (delta: number) => {
-      reelProgress = clamp(reelProgress + delta, 0, 1);
+    const updateFlow = (delta: number) => {
+      if (delta > 0) {
+        const reelRoom = 1 - reelProgress;
+        const reelStep = Math.min(delta, reelRoom);
+        reelProgress += reelStep;
+        pageProgress = clamp(pageProgress + (delta - reelStep), 0, 1);
+      } else {
+        const reverseDelta = Math.abs(delta);
+        const pageStep = Math.min(reverseDelta, pageProgress);
+        pageProgress -= pageStep;
+        reelProgress = clamp(reelProgress - (reverseDelta - pageStep), 0, 1);
+      }
+
       applyReelStyles();
+      applyPageStyles();
     };
 
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
-      updateProgress(event.deltaY / 1500);
+      updateFlow(event.deltaY / 1500);
     };
 
     const handleKeydown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowDown' || event.key === 'PageDown' || event.key === ' ') {
         event.preventDefault();
-        updateProgress(0.08);
+        updateFlow(0.08);
       }
 
       if (event.key === 'ArrowUp' || event.key === 'PageUp') {
         event.preventDefault();
-        updateProgress(-0.08);
+        updateFlow(-0.08);
       }
     };
 
     applyReelStyles();
+    applyPageStyles();
     window.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('keydown', handleKeydown);
 
@@ -93,6 +115,30 @@
       card.style.setProperty('--opacity', opacity.toFixed(3));
     });
   }
+
+  function applyPageStyles() {
+    const easedPage = ease(pageProgress);
+
+    if (homeScreen) {
+      homeScreen.style.setProperty('--page-y', `${(-100 * easedPage).toFixed(2)}svh`);
+    }
+
+    if (nextScreen) {
+      nextScreen.style.setProperty('--page-y', `${(100 - 100 * easedPage).toFixed(2)}svh`);
+    }
+
+    nextLetters.forEach((letter, index) => {
+      if (!letter) return;
+
+      const revealStart = 0.12;
+      const revealEnd = 0.92;
+      const stagger = (revealEnd - revealStart) / Math.max(nextLetters.length - 1, 1);
+      const local = clamp((pageProgress - revealStart - index * stagger) / 0.16);
+      const letterEase = ease(local);
+      letter.style.setProperty('--letter-opacity', letterEase.toFixed(3));
+      letter.style.setProperty('--letter-y', `${((1 - letterEase) * 12).toFixed(1)}px`);
+    });
+  }
 </script>
 
 
@@ -106,7 +152,7 @@
 </svelte:head>
 
 
-<main class="home">
+<main bind:this={homeScreen} class="home">
 
   <header class="top-bar" aria-label="Navigazione principale">
     <a class="logo" href="/" aria-label="Fuorimenu home">FM</a>
@@ -146,10 +192,11 @@
               class="reel-video"
               src={reel.src}
               poster={reel.poster}
+              autoplay
               muted
               playsinline
               loop
-              preload="metadata"
+              preload="auto"
             ></video>
           {:else}
             <div class="reel-placeholder" style="background: {reel.bg}"></div>
@@ -160,6 +207,20 @@
   </section>
 
 </main>
+
+<section bind:this={nextScreen} class="next-screen" aria-labelledby="next-message">
+  <p id="next-message" class="next-message" aria-label={nextMessage}>
+    {#each nextCharacters as character, index}
+      <span
+        bind:this={nextLetters[index]}
+        class:accent-letter={character.isAccent}
+        aria-hidden="true"
+      >
+        {character.letter}
+      </span>
+    {/each}
+  </p>
+</section>
 
 
 <style>
@@ -180,6 +241,9 @@
     overflow: hidden;
     background: var(--background-50);
     color: var(--brand-500);
+    transform: translateY(var(--page-y, 0));
+    transition: transform 160ms ease-out;
+    will-change: transform;
   }
 
   .top-bar {
@@ -254,13 +318,17 @@
     pointer-events: none;
   }
 
-  h1 {
+  h1,
+  .next-message {
     width: min(434px, 100%);
     margin: 0;
-    color: var(--brand-500);
+    color: #2A4385;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 32px; font-weight: 400;
-    line-height: 1.45; text-align: center;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    text-align: center;
   }
   h1 span { display: block; }
 
@@ -308,11 +376,46 @@
     display: block; width: 100%; height: 100%; object-fit: cover;
   }
 
+  .next-screen {
+    position: fixed;
+    z-index: 20;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    padding: 102px var(--unit-40) var(--unit-80);
+    background: var(--background-50);
+    transform: translateY(var(--page-y, 100svh));
+    transition: transform 160ms ease-out;
+    will-change: transform;
+  }
+
+  .next-message span {
+    display: inline-block;
+    opacity: var(--letter-opacity, 0);
+    transform: translateY(var(--letter-y, 12px));
+    transition:
+      opacity 140ms linear,
+      transform 140ms ease-out;
+    will-change: opacity, transform;
+  }
+
+  .next-message .accent-letter {
+    color: var(--Accent-500, var(--accent-500, #FE4C00));
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 32px;
+    font-style: italic;
+    font-weight: 700;
+    line-height: normal;
+  }
+
   @media (max-width: 700px) {
     .top-bar   { height: 88px; padding: 28px 24px; }
     .logo      { font-size: 34px; }
     .intro     { padding: 88px 24px 72px; }
-    h1         { font-size: 24px; }
+    h1,
+    .next-message { font-size: 24px; }
     .reel-card { width: min(34vw, 132px); }
+    .next-screen { padding: 88px 24px 72px; }
   }
 </style>
