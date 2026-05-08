@@ -7,9 +7,12 @@
   let homeScreen: HTMLElement;
   let nextScreen: HTMLElement;
   let brandScreen: HTMLElement;
+  let raviolo: HTMLElement;
   let reelCards: HTMLElement[] = [];
   let introLetters: HTMLElement[] = [];
   let nextLetters: HTMLElement[] = [];
+  let mountProgress = 0;
+  let introEl: HTMLElement;
 
   const clamp = (v: number, min = 0, max = 1) => Math.min(Math.max(v, min), max);
   const ease  = (v: number) => v * v * (3 - 2 * v);
@@ -60,6 +63,18 @@
   const brandArrivalRank: number[] = new Array(brandLetters.length);
   brandOrder.forEach((letterIndex, rank) => { brandArrivalRank[letterIndex] = rank; });
   let brandLetterEls: HTMLElement[] = [];
+  let ravioloFrame = 0;
+
+  const ravioloMotion = {
+    x: 84,
+    y: 96,
+    vx: 92,
+    vy: 74,
+    tiltX: 0,
+    tiltY: 0,
+    hover: false,
+    last: 0
+  };
 
   const reels = [
     { src: '/videos/tiramisu.mp4', bg: '#f0f0f0', fromX: -8,  fromY:  4, toX: -34, toY: -18, rotate: -8  },
@@ -128,6 +143,58 @@
     });
   }
 
+  function moveRaviolo(time: number) {
+    if (!raviolo || !brandScreen) {
+      ravioloFrame = requestAnimationFrame(moveRaviolo);
+      return;
+    }
+
+    const dt = Math.min((time - (ravioloMotion.last || time)) / 1000, 0.032);
+    ravioloMotion.last = time;
+
+    const bounds = brandScreen.getBoundingClientRect();
+    const width  = raviolo.offsetWidth;
+    const height = raviolo.offsetHeight;
+    const pad    = Math.max(16, Math.min(bounds.width, bounds.height) * 0.035);
+    const maxX   = Math.max(pad, bounds.width - width - pad);
+    const maxY   = Math.max(pad, bounds.height - height - pad);
+
+    ravioloMotion.x += ravioloMotion.vx * dt;
+    ravioloMotion.y += ravioloMotion.vy * dt;
+
+    if (ravioloMotion.x <= pad || ravioloMotion.x >= maxX) {
+      ravioloMotion.x  = clamp(ravioloMotion.x, pad, maxX);
+      ravioloMotion.vx = -ravioloMotion.vx;
+    }
+
+    if (ravioloMotion.y <= pad || ravioloMotion.y >= maxY) {
+      ravioloMotion.y  = clamp(ravioloMotion.y, pad, maxY);
+      ravioloMotion.vy = -ravioloMotion.vy;
+    }
+
+    if (!ravioloMotion.hover) {
+      ravioloMotion.tiltX *= 0.88;
+      ravioloMotion.tiltY *= 0.88;
+    }
+
+    raviolo.style.setProperty('--rv-x', `${ravioloMotion.x.toFixed(1)}px`);
+    raviolo.style.setProperty('--rv-y', `${ravioloMotion.y.toFixed(1)}px`);
+    raviolo.style.setProperty('--rv-tilt-x', `${ravioloMotion.tiltX.toFixed(2)}deg`);
+    raviolo.style.setProperty('--rv-tilt-y', `${ravioloMotion.tiltY.toFixed(2)}deg`);
+    raviolo.style.setProperty('--rv-float-rotate', `${((ravioloMotion.x + ravioloMotion.y) * 0.018).toFixed(2)}deg`);
+
+    ravioloFrame = requestAnimationFrame(moveRaviolo);
+  }
+
+  function tiltRaviolo(e: PointerEvent) {
+    if (!raviolo) return;
+    const rect = raviolo.getBoundingClientRect();
+    const nx   = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny   = (e.clientY - rect.top) / rect.height - 0.5;
+    ravioloMotion.tiltX = clamp(-ny * 22, -14, 14);
+    ravioloMotion.tiltY = clamp(nx * 22, -14, 14);
+  }
+
   // ── Unica funzione che gestisce tutto — nessun conflitto ──
   function applyAllStyles() {
     // 1. Home scorre via
@@ -166,6 +233,17 @@
   }
 
   onMount(() => {
+    setTimeout(() => {
+      const mountStart    = performance.now();
+      const mountDuration = 2000;
+      const tickMount = (now: number) => {
+        const o = ease(Math.min((now - mountStart) / mountDuration, 1));
+        introEl?.style.setProperty('--mount-opacity', o.toFixed(3));
+        if (o < 1) requestAnimationFrame(tickMount);
+      };
+      requestAnimationFrame(tickMount);
+    }, 400);
+
     const updateFlow = (delta: number) => {
       if (delta > 0) {
         const reelStep = Math.min(delta, 1 - reelProgress);
@@ -198,9 +276,11 @@
 
     applyReelStyles();
     applyAllStyles();
+    ravioloFrame = requestAnimationFrame(moveRaviolo);
     window.addEventListener('wheel',   onWheel,   { passive: false });
     window.addEventListener('keydown', onKeydown);
     return () => {
+      cancelAnimationFrame(ravioloFrame);
       window.removeEventListener('wheel',   onWheel);
       window.removeEventListener('keydown', onKeydown);
     };
@@ -235,7 +315,7 @@
     </div>
   </header>
 
-  <section class="intro" aria-labelledby="intro-title">
+  <section class="intro" aria-labelledby="intro-title" bind:this={introEl}>
     <h1 id="intro-title" aria-label={introMessage}>
       {#each introWords as group (group.index)}
         {#if group.type === 'space'}
@@ -283,6 +363,19 @@
 
 
 <section bind:this={brandScreen} class="brand-screen" aria-label="Fuorimenu">
+  <div
+    bind:this={raviolo}
+    class="floating-raviolo"
+    data-node-id="266:413"
+    role="img"
+    aria-label="Raviolo"
+    onpointerenter={() => { ravioloMotion.hover = true; }}
+    onpointermove={tiltRaviolo}
+    onpointerleave={() => { ravioloMotion.hover = false; }}
+  >
+    <img src="/images/raviolo.svg" alt="" draggable="false" />
+  </div>
+
   <p class="brand-word" aria-label="Fuorimenu">
     {#each brandLetters as { letter }, index}
       <span bind:this={brandLetterEls[index]} class="brand-letter" aria-hidden="true"
@@ -361,6 +454,9 @@
     box-sizing: border-box;
     padding: 102px var(--unit-40) var(--unit-80);
     pointer-events: none;
+    opacity: var(--mount-opacity, 0);
+    transition: opacity 80ms linear;
+    will-change: opacity;
   }
 
   h1, .next-message {
@@ -432,13 +528,40 @@
   .brand-screen {
     position: fixed; z-index: 25; inset: 0;
     display: grid; place-items: center;
+    overflow: hidden;
     background: var(--background-50);
     perspective: 900px; perspective-origin: 50% 50%;
     opacity: 0; pointer-events: none;
     will-change: opacity;
   }
 
+  .floating-raviolo {
+    position: absolute; z-index: 2; top: 0; left: 0;
+    width: clamp(96px, 15vw, 166px); aspect-ratio: 233.427 / 232.847;
+    cursor: grab;
+    transform:
+      translate3d(var(--rv-x, 84px), var(--rv-y, 96px), 0)
+      rotateZ(var(--rv-float-rotate, 0deg))
+      rotateX(var(--rv-tilt-x, 0deg))
+      rotateY(var(--rv-tilt-y, 0deg));
+    transform-style: preserve-3d;
+    transform-origin: 50% 50%;
+    transition: filter 160ms ease;
+    will-change: transform;
+  }
+
+  .floating-raviolo:hover {
+    filter: drop-shadow(0 18px 20px rgb(42 68 132/.18));
+  }
+
+  .floating-raviolo img {
+    display: block; width: 100%; height: 100%;
+    pointer-events: none;
+    user-select: none;
+  }
+
   .brand-word {
+    position: relative; z-index: 1;
     margin: 0;
     display: flex; align-items: baseline;
     font-family: 'DynaPuff', system-ui, sans-serif;
@@ -464,5 +587,6 @@
     .reel-card    { width: min(34vw, 132px); }
     .next-screen  { padding: 88px 24px 72px; }
     .brand-word   { font-size: clamp(48px, 14vw, 96px); }
+    .floating-raviolo { width: clamp(86px, 28vw, 124px); }
   }
 </style>
