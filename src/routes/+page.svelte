@@ -292,7 +292,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
   <link
-    href="https://fonts.googleapis.com/css2?family=DynaPuff&family=JetBrains+Mono:ital,wght@0,400;1,700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=JetBrains+Mono:ital,wght@0,400;1,700&display=swap"
     rel="stylesheet"
   />
 </svelte:head>
@@ -561,15 +561,17 @@
   }
 
   .brand-word {
-    position: relative; z-index: 1;
-    margin: 0;
-    display: flex; align-items: baseline;
-    font-family: 'DynaPuff', system-ui, sans-serif;
-    font-size: clamp(72px, 12vw, 160px);
-    font-weight: 700; line-height: 1;
-    color: var(--brand-500, #2A4385);
-    transform-style: preserve-3d;
-  }
+  position: relative; z-index: 1;
+  margin: 0;
+  display: flex; align-items: baseline;
+  font-family: 'DynaPuff', system-ui, sans-serif;
+  font-size: clamp(72px, 12vw, 160px);
+  font-weight: 700;                    
+  font-variation-settings: "wdth" 100;      
+  line-height: 1;
+  color: var(--brand-500, #2A4385);
+  transform-style: preserve-3d;
+}
 
   .brand-letter {
     display: inline-block;
