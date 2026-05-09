@@ -363,38 +363,10 @@
 
 
 <section bind:this={brandScreen} class="brand-screen" aria-label="Fuorimenu">
-
-  <div class="pot-wrapper">
-  <svg class="steam" viewBox="0 0 60 40" fill="none">
-    <path class="steam-1" d="M15 35 C15 28, 22 25, 18 18 C14 11, 20 8, 20 2" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round"/>
-    <path class="steam-2" d="M30 35 C30 28, 37 25, 33 18 C29 11, 35 8, 35 2" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round"/>
-    <path class="steam-3" d="M45 35 C45 28, 52 25, 48 18 C44 11, 50 8, 50 2" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round"/>
-  </svg>
-
-  <svg class="pot-svg" xmlns="http://www.w3.org/2000/svg" width="94" height="80" viewBox="0 0 94 80" fill="none">
-    <!-- corpo pentola (invariato, spostato di +8px in Y per far spazio al coperchio) -->
-    <g transform="translate(0, 8)">
-      <path d="M15.2295 27.5527H72.5652V64.0739C72.5652 66.135 71.2845 67.8214 69.7191 67.8214H18.0756C16.5102 67.8214 15.2295 66.135 15.2295 64.0739V27.5527Z" fill="#F7F3EA" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M39.4276 8.0166H48.351C49.8847 8.0166 51.1256 9.17941 51.1256 10.6166V18.0377H36.667V10.6166C36.667 9.17941 37.9079 8.0166 39.4416 8.0166H39.4276Z" fill="#2A4385" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M15.0754 29.4143C11.4469 29.4143 8.24913 29.4143 8.24913 29.4143C4.83593 29.4143 4.83495 35.5 15.0754 35.5" stroke="#2A4385" stroke-width="1.5"/>
-      <path d="M72.717 29.4143C76.3456 29.4143 79.5434 29.4143 79.5434 29.4143C82.9566 29.4143 82.9575 35.5 72.717 35.5" stroke="#2A4385" stroke-width="1.5"/>
-    </g>
-
-    <!-- coperchio animato separatamente -->
-    <g class="lid" transform-origin="47 27">
-      <!-- bordo coperchio -->
-      <path d="M12 35 C12 35 20 28 47 28 C74 28 82 35 82 35" fill="#F7F3EA" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round"/>
-      <!-- cupola coperchio -->
-      <path d="M18 35 C18 20 76 20 76 35" fill="#F7F3EA" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- pomello -->
-      <rect x="41" y="12" width="12" height="7" rx="3.5" fill="#2A4385" stroke="#2A4385" stroke-width="1.5" stroke-linecap="round"/>
-    </g>
-  </svg>
-</div>
-
   <div
     bind:this={raviolo}
     class="floating-raviolo"
+    data-node-id="266:413"
     role="img"
     aria-label="Raviolo"
     onpointerenter={() => { ravioloMotion.hover = true; }}
@@ -410,7 +382,6 @@
         >{letter}</span>
     {/each}
   </p>
-
 </section>
 
 
@@ -609,69 +580,6 @@
     transition: opacity 100ms linear, transform 100ms linear;
     will-change: opacity, transform;
   }
-
-  .pot-wrapper {
-  position: absolute;
-  bottom: clamp(32px, 6vh, 80px);
-  right: clamp(32px, 6vw, 120px);
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.steam {
-  width: 60px; height: 40px;
-  margin-bottom: -4px;
-  overflow: visible;
-}
-
-.steam-1, .steam-2, .steam-3 {
-  stroke-dasharray: 40;
-  stroke-dashoffset: 40;
-  opacity: 0;
-  animation: steam-rise 2.4s ease-in-out infinite;
-}
-.steam-2 { animation-delay: 0.5s; }
-.steam-3 { animation-delay: 1.0s; }
-
-@keyframes steam-rise {
-  0%   { stroke-dashoffset: 40; opacity: 0;   transform: translateY(0px)   scaleX(1);   }
-  15%  {                         opacity: 0.8;                                            }
-  60%  { stroke-dashoffset: 0;  opacity: 0.5; transform: translateY(-8px)  scaleX(1.1); }
-  100% { stroke-dashoffset: 0;  opacity: 0;   transform: translateY(-18px) scaleX(1.4); }
-}
-
-/* corpo pentola: tremito orizzontale */
-.pot-svg {
-  animation: pot-shake 0.18s ease-in-out infinite alternate;
-  transform-origin: center bottom;
-}
-
-@keyframes pot-shake {
-  0%   { transform: translateX(-1.5px) rotate(-0.4deg); }
-  25%  { transform: translateX(1px)    rotate(0.3deg);  }
-  50%  { transform: translateX(-1px)   rotate(-0.5deg); }
-  75%  { transform: translateX(2px)    rotate(0.4deg);  }
-  100% { transform: translateX(-0.5px) rotate(-0.2deg); }
-}
-
-/* coperchio: si solleva e ricade con rimbalzo */
-.lid {
-  animation: lid-bounce 0.9s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
-  transform-box: fill-box;
-  transform-origin: center bottom;
-}
-
-@keyframes lid-bounce {
-  0%   { transform: translateY(0px)   rotate(0deg);    }
-  18%  { transform: translateY(-7px)  rotate(-2.5deg); }
-  36%  { transform: translateY(-10px) rotate(2deg);    }
-  54%  { transform: translateY(-5px)  rotate(-1.5deg); }
-  72%  { transform: translateY(-8px)  rotate(1.5deg);  }
-  88%  { transform: translateY(-2px)  rotate(-0.5deg); }
-  100% { transform: translateY(0px)   rotate(0deg);    }
-}
 
   @media (max-width: 700px) {
     .top-bar      { height: 88px; padding: 28px 24px; }
