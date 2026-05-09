@@ -391,18 +391,16 @@
 <main bind:this={homeScreen} class="home">
   <header class="top-bar" aria-label="Navigazione principale">
     <a class="logo" href="/" aria-label="Fuorimenu home">FM</a>
-    <div class="top-bar-icons">
-      <button class="icon-button" type="button" aria-label="Audio">
-        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
-          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
-          <path d="M18.5 10a6 6 0 0 1 0 8" />
-          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
-        </svg>
-      </button>
-      <button class="icon-button" type="button" aria-label="Menu">
-        <span class="menu-icon" aria-hidden="true"></span>
-      </button>
-    </div>
+    <button class="icon-button top-bar-audio" type="button" aria-label="Audio">
+      <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
+        <path d="M4 11.5h5l6-5v15l-6-5H4z" />
+        <path d="M18.5 10a6 6 0 0 1 0 8" />
+        <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+      </svg>
+    </button>
+    <button class="icon-button top-bar-menu" type="button" aria-label="Menu">
+      <span class="menu-icon" aria-hidden="true"></span>
+    </button>
   </header>
 
   <section class="intro" aria-labelledby="intro-title" bind:this={introEl}>
@@ -479,18 +477,16 @@
 <section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenu">
   <header class="roles-top-bar" aria-label="Navigazione principale">
     <a class="logo" href="/" aria-label="Fuorimenu home">FM</a>
-    <div class="top-bar-icons">
-      <button class="icon-button" type="button" aria-label="Audio">
-        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
-          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
-          <path d="M18.5 10a6 6 0 0 1 0 8" />
-          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
-        </svg>
-      </button>
-      <button class="icon-button" type="button" aria-label="Menu">
-        <span class="menu-icon" aria-hidden="true"></span>
-      </button>
-    </div>
+    <button class="icon-button top-bar-audio" type="button" aria-label="Audio">
+      <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
+        <path d="M4 11.5h5l6-5v15l-6-5H4z" />
+        <path d="M18.5 10a6 6 0 0 1 0 8" />
+        <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+      </svg>
+    </button>
+    <button class="icon-button top-bar-menu" type="button" aria-label="Menu">
+      <span class="menu-icon" aria-hidden="true"></span>
+    </button>
   </header>
 
   <div class="role-grid">
@@ -542,7 +538,7 @@
   .top-bar {
     position: absolute; z-index: 30; top: 0; left: 0;
     box-sizing: border-box;
-    display: flex; align-items: center; justify-content: space-between;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
     width: 100%; height: 102px;
     padding: var(--unit-40) var(--unit-80);
   }
@@ -551,10 +547,13 @@
     width: 51px; color: var(--brand-500);
     font-family: 'DynaPuff', system-ui, sans-serif;
     font-size: var(--unit-40); line-height: 1; text-decoration: none;
+    transition: color 160ms ease;
   }
 
-  .top-bar-icons { display: flex; align-items: center; gap: 24px; }
-  .top-bar a {
+  .top-bar-audio { justify-self: center; }
+  .top-bar-menu { justify-self: end; }
+
+  .top-bar a, .roles-top-bar a {
     color: var(--brand-500);
     font-family: 'DynaPuff', system-ui, sans-serif;
     font-weight: 400; text-decoration: none;
@@ -564,9 +563,13 @@
     display: grid; width: 40px; height: 40px; place-items: center;
     padding: 0; color: var(--brand-500);
     background: transparent; border: 0; cursor: pointer;
-    transition: opacity 0.2s ease;
+    transition: color 160ms ease, opacity 0.2s ease;
   }
-  .icon-button:hover         { opacity: 0.65; }
+  .logo:hover,
+  .logo:focus-visible,
+  .icon-button:hover,
+  .icon-button:focus-visible { color: var(--accent-500, #FE4C00); }
+  .icon-button:hover         { opacity: 1; }
   .icon-button:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 4px; }
 
   .volume-icon {
@@ -743,7 +746,7 @@
   .roles-top-bar {
     position: absolute; z-index: 5; top: 0; left: 0;
     box-sizing: border-box;
-    display: flex; align-items: center; justify-content: space-between;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
     width: 100%; height: 102px;
     padding: var(--unit-40) var(--unit-80);
     color: var(--brand-500);
