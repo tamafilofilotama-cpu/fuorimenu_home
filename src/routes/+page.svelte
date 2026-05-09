@@ -7,7 +7,9 @@
   let homeScreen: HTMLElement;
   let nextScreen: HTMLElement;
   let brandScreen: HTMLElement;
+  let rolesScreen: HTMLElement;
   let reelCards: HTMLElement[] = [];
+  let roleCards: HTMLElement[] = [];
   let introLetters: HTMLElement[] = [];
   let nextLetters: HTMLElement[] = [];
   let mountProgress = 0;
@@ -61,10 +63,25 @@
   const brandOrder   = [...brandLetters.map((_, i) => i)].sort(() => Math.random() - 0.5);
   const brandArrivalRank: number[] = new Array(brandLetters.length);
   brandOrder.forEach((letterIndex, rank) => { brandArrivalRank[letterIndex] = rank; });
+  const brandBurstOrder = [...brandLetters.map((_, i) => i)].sort(() => Math.random() - 0.5);
+  const brandBurstRank: number[] = new Array(brandLetters.length);
+  const brandBurstMotion = brandLetters.map(() => ({
+    x: (Math.random() - 0.5) * 36,
+    y: -22 - Math.random() * 28,
+    rotate: (Math.random() - 0.5) * 34
+  }));
+  brandBurstOrder.forEach((letterIndex, rank) => { brandBurstRank[letterIndex] = rank; });
   let brandLetterEls: HTMLElement[] = [];
   let floatingFrame = 0;
   let floatingLast = 0;
   let floatingEls: HTMLElement[] = [];
+  const brandScrollMax = 3.42;
+
+  const roleItems = [
+    { title: 'ufficio', description: 'descrizione testo' },
+    { title: 'cucina', description: 'descrizione testo' },
+    { title: 'servizio', description: 'descrizione testo' }
+  ];
 
   type FloatingMotion = {
     x: number;
@@ -131,11 +148,20 @@
       if (!el) return;
       const rank    = brandArrivalRank[i];
       const stagger = 0.6 / Math.max(n - 1, 1);
-      const local   = clamp((brandProgress - rank * stagger) / 0.18);
+      const local   = clamp((clamp(brandProgress) - rank * stagger) / 0.18);
       const e       = ease(local);
+      const burstRank = brandBurstRank[i];
+      const burstStagger = 0.5 / Math.max(n - 1, 1);
+      const burstProgress = clamp((brandProgress - 1.9) / 0.66);
+      const burstLocal = clamp((burstProgress - burstRank * burstStagger) / 0.14);
+      const burst = ease(burstLocal);
+      const burstMotion = brandBurstMotion[i];
       el.style.setProperty('--bl-z',       `${((1 - e) * 600).toFixed(1)}px`);
-      el.style.setProperty('--bl-scale',   (1 + (1 - e) * 3.5).toFixed(3));
-      el.style.setProperty('--bl-opacity', clamp(local / 0.25).toFixed(3));
+      el.style.setProperty('--bl-scale',   (1 + (1 - e) * 3.5 + burst * 1.35).toFixed(3));
+      el.style.setProperty('--bl-opacity', (clamp(local / 0.25) * (1 - burst)).toFixed(3));
+      el.style.setProperty('--bl-x',       `${(burstMotion.x * burst).toFixed(1)}px`);
+      el.style.setProperty('--bl-y',       `${(burstMotion.y * burst).toFixed(1)}px`);
+      el.style.setProperty('--bl-rotate',  `${(burstMotion.rotate * burst).toFixed(1)}deg`);
     });
   }
 
@@ -229,8 +255,9 @@
   // ── Unica funzione che gestisce tutto — nessun conflitto ──
   function applyAllStyles() {
     // 1. Home scorre via
-    const epPage  = ease(pageProgress);
-    const epBrand = ease(brandProgress);
+    const epPage        = ease(pageProgress);
+    const brandReveal   = clamp(brandProgress);
+    const epBrand       = ease(brandReveal);
     homeScreen?.style.setProperty('--page-y', `${(-100 * epPage).toFixed(2)}svh`);
 
     // 2. next-screen: appare con pageProgress, sparisce con brandProgress
@@ -248,6 +275,35 @@
       brandScreen.style.opacity = epBrand.toFixed(3);
       brandScreen.style.pointerEvents = epBrand > 0.05 ? 'auto' : 'none';
     }
+
+    const floatingExit = ease(clamp((brandProgress - 1.08) / 0.64));
+    floatingEls.forEach((el, index) => {
+      if (!el) return;
+      const direction = index === 0 ? -1 : 1;
+      const fadeOut = ease(clamp((floatingExit - 0.72) / 0.28));
+      const scrollY = -floatingExit * 112;
+      const scrollX = direction * floatingExit * 7;
+      el.style.setProperty('--float-scroll-x', `${scrollX.toFixed(2)}vw`);
+      el.style.setProperty('--float-scroll-y', `${scrollY.toFixed(2)}vh`);
+      el.style.setProperty('--float-scale', (1 - floatingExit * 0.08).toFixed(3));
+      el.style.setProperty('--float-opacity', (1 - fadeOut).toFixed(3));
+      el.style.pointerEvents = fadeOut > 0.82 ? 'none' : 'auto';
+    });
+
+    const rolesProgress = clamp((brandProgress - 2.48) / 0.94);
+    const rolesEase = ease(rolesProgress);
+    if (rolesScreen) {
+      rolesScreen.style.opacity = rolesEase.toFixed(3);
+      rolesScreen.style.pointerEvents = rolesProgress > 0.08 ? 'auto' : 'none';
+      rolesScreen.style.setProperty('--browser-y', `${((1 - rolesEase) * -112).toFixed(1)}px`);
+    }
+    roleCards.forEach((card, index) => {
+      if (!card) return;
+      const cardProgress = clamp((rolesProgress - index * 0.13) / 0.44);
+      const cardEase = ease(cardProgress);
+      card.style.setProperty('--role-card-y', `${((1 - cardEase) * 38).toFixed(1)}vh`);
+      card.style.setProperty('--role-card-opacity', cardEase.toFixed(3));
+    });
 
     // 4. Lettere intro: dissolvono con pageProgress
     applyLetterStyles(introLetters, pageProgress, {
@@ -282,7 +338,7 @@
         const rem1     = delta - reelStep;
         const pageStep = Math.min(rem1, 1 - pageProgress);
         pageProgress  += pageStep;
-        brandProgress  = clamp(brandProgress + rem1 - pageStep);
+        brandProgress  = clamp(brandProgress + rem1 - pageStep, 0, brandScrollMax);
       } else {
         const abs       = Math.abs(delta);
         const brandStep = Math.min(abs, brandProgress);
@@ -323,7 +379,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
   <link
-    href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=JetBrains+Mono:ital,wght@0,400;1,700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=JetBrains+Mono:ital,wght@0,400;1,700&family=Roboto:wght@400;500&display=swap"
     rel="stylesheet"
   />
 </svelte:head>
@@ -415,6 +471,61 @@
         >{letter}</span>
     {/each}
   </p>
+</section>
+
+<section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenu">
+  <div class="browser-chrome" aria-hidden="true">
+    <div class="browser-tabs">
+      <div class="browser-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="browser-tab">
+        <span class="browser-favicon"></span>
+        <span>Web Design DDC</span>
+        <span class="browser-close">×</span>
+      </div>
+    </div>
+    <div class="browser-url-row">
+      <div class="browser-nav">
+        <span>‹</span><span>›</span><span>↻</span><span>⌂</span>
+      </div>
+      <div class="browser-url">webdesign.ddc</div>
+    </div>
+    <div class="browser-bookmarks">
+      <span>News</span>
+      <span>Design</span>
+      <span>Benchmark</span>
+    </div>
+  </div>
+
+  <header class="roles-top-bar" aria-label="Navigazione principale">
+    <a class="logo" href="/" aria-label="Fuorimenu home">FM</a>
+    <div class="roles-top-icons">
+      <button class="icon-button" type="button" aria-label="Audio">
+        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
+          <path d="M18.5 10a6 6 0 0 1 0 8" />
+          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+        </svg>
+      </button>
+      <button class="icon-button" type="button" aria-label="Menu">
+        <span class="menu-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="role-grid">
+    {#each roleItems as item, index}
+      <article bind:this={roleCards[index]} class="role-card">
+        <img src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
+        <div class="role-card-overlay"></div>
+        <div class="role-card-copy">
+          <h2>{item.title}</h2>
+          <p>{item.description}</p>
+        </div>
+      </article>
+    {/each}
+  </div>
 </section>
 
 
@@ -571,15 +682,18 @@
   .floating-vector {
     position: absolute; z-index: 2; top: 0; left: 0;
     cursor: grab;
+    opacity: var(--float-opacity, 1);
     transform:
       translate3d(var(--float-x, 84px), var(--float-y, 96px), 0)
+      translate3d(var(--float-scroll-x, 0vw), var(--float-scroll-y, 0vh), 0)
       rotateZ(var(--float-rotate, 0deg))
       rotateX(var(--float-tilt-x, 0deg))
-      rotateY(var(--float-tilt-y, 0deg));
+      rotateY(var(--float-tilt-y, 0deg))
+      scale(var(--float-scale, 1));
     transform-style: preserve-3d;
     transform-origin: 50% 50%;
-    transition: filter 160ms ease;
-    will-change: transform;
+    transition: filter 160ms ease, opacity 100ms linear;
+    will-change: transform, opacity;
   }
 
   .floating-vector:hover {
@@ -603,7 +717,7 @@
   }
 
   .brand-word {
-  position: relative; z-index: 1;
+  position: relative; z-index: 3;
   margin: 0;
   display: flex; align-items: baseline;
   font-family: 'DynaPuff', system-ui, sans-serif;
@@ -618,7 +732,10 @@
   .brand-letter {
     display: inline-block;
     opacity: var(--bl-opacity, 0);
-    transform: translateZ(var(--bl-z, 600px)) scale(var(--bl-scale, 4.5));
+    transform:
+      translate3d(var(--bl-x, 0px), var(--bl-y, 0px), var(--bl-z, 600px))
+      rotate(var(--bl-rotate, 0deg))
+      scale(var(--bl-scale, 4.5));
     transition: opacity 100ms linear, transform 100ms linear;
     will-change: opacity, transform;
   }
