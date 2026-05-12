@@ -54,7 +54,7 @@
 
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina olimpica...';
   const nextMessage     = 'Incontra Le persone che hanno reso tutto questo possibile.';
-  const brandWord       = 'Fuorimenu';
+  const brandWord       = 'Fuorimenù';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
   const introWords      = groupWords(introCharacters);
@@ -78,13 +78,27 @@
   const brandScrollMax = 3.42;
 
   const roleItems = [
-    { title: 'ufficio', description: 'descrizione testo' },
+    {
+      title: 'ufficio',
+      description: 'descrizione testo',
+      speaker: 'Carlo Zarri',
+      dialogue: "il mio ruolo ... seguimi nell'ufficio per saperne di più",
+      personSrc: '/images/carlo-zarri.png'
+    },
     {
       title: 'cucina',
       description: 'descrizione testo',
-      dialogue: 'Sono Stefano Paganini il mio ruolo ... seguimi nella mensa per saperne di più'
+      speaker: 'Stefano Paganini',
+      dialogue: 'il mio ruolo ... seguimi nella mensa per saperne di più',
+      personSrc: '/images/stefano-paganini-new.png'
     },
-    { title: 'servizio', description: 'descrizione testo' }
+    {
+      title: 'servizio',
+      description: 'descrizione testo',
+      speaker: 'Ken Frank',
+      dialogue: 'il mio ruolo ... seguimi nella mensa per saperne di più',
+      personSrc: '/images/ken-frank.png'
+    }
   ];
 
   type FloatingMotion = {
@@ -535,7 +549,10 @@
       <article
         bind:this={roleCards[index]}
         class="role-card"
+        class:is-ufficio={item.title === 'ufficio'}
         class:is-cucina={item.title === 'cucina'}
+        class:is-servizio={item.title === 'servizio'}
+        class:has-dialogue={Boolean(item.dialogue)}
       >
         <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
         <div class="role-card-overlay"></div>
@@ -546,11 +563,12 @@
         {#if item.dialogue}
           <div class="role-dialogue">
             <p>
-              Sono <strong>Stefano Paganini</strong> il mio ruolo ... seguimi nella cucina per
-              saperne di più
+              Sono <strong>{item.speaker}</strong> {item.dialogue}
             </p>
           </div>
-          <img class="role-person" src="/images/stefano-paganini.png" alt="Stefano Paganini" draggable="false" />
+          {#if item.personSrc}
+            <img class="role-person" src={item.personSrc} alt={item.speaker} draggable="false" />
+          {/if}
         {/if}
       </article>
     {/each}
@@ -819,6 +837,7 @@
     transition: opacity 120ms linear, transform 120ms ease-out;
     will-change: opacity, transform;
   }
+  
 
   .role-card-bg {
     position: absolute;
@@ -899,9 +918,9 @@
 
   .role-person {
     position: absolute; z-index: 4;
-    right: -112px; bottom: -110px;
-    width: min(109%, 474px);
-    height: auto;
+    right: 15px; bottom: -240px;
+    width: auto;
+    height: min(150%, 750px);
     opacity: 0;
     transform: translateX(42%);
     transition: opacity 280ms ease, transform 360ms ease;
@@ -910,35 +929,59 @@
     will-change: transform, opacity;
   }
 
-  .role-card.is-cucina:hover .role-card-bg,
-  .role-card.is-cucina:focus-visible .role-card-bg {
+  .role-card.is-servizio .role-person {
+    right: var(--servizio-person-right, -5px);
+    bottom: var(--servizio-person-bottom, -240px);
+    height: var(--servizio-person-height, min(150%, 750px));
+  }
+
+  .role-card.is-ufficio .role-person {
+    right: var(--ufficio-person-right, -15px);
+    bottom: var(--ufficio-person-bottom, -240px);
+    height: var(--ufficio-person-height, min(150%, 750px));
+  }
+
+  .role-card.is-ufficio .role-dialogue {
+    left: 23px;
+    width: 184px;
+  }
+
+  .role-card.has-dialogue:hover .role-card-bg,
+  .role-card.has-dialogue:focus-visible .role-card-bg {
     filter: blur(2.5px);
     transform: translateX(-50%) scale(1.02);
   }
 
   .role-card.is-cucina:hover .role-card-overlay,
   .role-card.is-cucina:focus-visible .role-card-overlay {
+    background: rgb(42 67 133 / 0.8);
+  }
+
+  .role-card.is-ufficio:hover .role-card-overlay,
+  .role-card.is-ufficio:focus-visible .role-card-overlay,
+  .role-card.is-servizio:hover .role-card-overlay,
+  .role-card.is-servizio:focus-visible .role-card-overlay {
     background: rgb(42 68 132 / 0.8);
   }
 
-  .role-card.is-cucina:hover .role-card-copy,
-  .role-card.is-cucina:focus-visible .role-card-copy {
+  .role-card.has-dialogue:hover .role-card-copy,
+  .role-card.has-dialogue:focus-visible .role-card-copy {
     transform: translateY(-102px);
   }
 
-  .role-card.is-cucina:hover .role-card-copy p,
-  .role-card.is-cucina:focus-visible .role-card-copy p {
+  .role-card.has-dialogue:hover .role-card-copy p,
+  .role-card.has-dialogue:focus-visible .role-card-copy p {
     opacity: 0;
   }
 
-  .role-card.is-cucina:hover .role-dialogue,
-  .role-card.is-cucina:focus-visible .role-dialogue {
+  .role-card.has-dialogue:hover .role-dialogue,
+  .role-card.has-dialogue:focus-visible .role-dialogue {
     opacity: 1;
     transform: translateX(0);
   }
 
-  .role-card.is-cucina:hover .role-person,
-  .role-card.is-cucina:focus-visible .role-person {
+  .role-card.has-dialogue:hover .role-person,
+  .role-card.has-dialogue:focus-visible .role-person {
     opacity: 1;
     transform: translateX(0);
   }
@@ -966,8 +1009,8 @@
     .role-card-copy { top: 42px; }
     .role-card-copy h2 { font-size: clamp(38px, 12vw, 52px); }
     .role-card-copy p { font-size: 13px; }
-    .role-card.is-cucina:hover .role-card-copy,
-    .role-card.is-cucina:focus-visible .role-card-copy {
+    .role-card.has-dialogue:hover .role-card-copy,
+    .role-card.has-dialogue:focus-visible .role-card-copy {
       transform: translateY(-28px);
     }
     .role-dialogue {
@@ -976,10 +1019,25 @@
       padding: 12px;
       border-radius: 18px;
     }
+    .role-card.is-ufficio .role-dialogue {
+      left: 16px;
+      width: min(58vw, 184px);
+    }
     .role-dialogue p { font-size: 12px; }
     .role-person {
-      right: -70px; bottom: 0;
-      width: min(78vw, 300px);
+      right: -18px; bottom: -8px;
+      width: auto;
+      height: min(92%, 300px);
+    }
+    .role-card.is-servizio .role-person {
+      right: var(--servizio-person-mobile-right, -18px);
+      bottom: var(--servizio-person-mobile-bottom, -8px);
+      height: var(--servizio-person-mobile-height, min(92%, 300px));
+    }
+    .role-card.is-ufficio .role-person {
+      right: var(--ufficio-person-mobile-right, -18px);
+      bottom: var(--ufficio-person-mobile-bottom, -8px);
+      height: var(--ufficio-person-mobile-height, min(92%, 300px));
     }
   }
 </style>
