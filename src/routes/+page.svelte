@@ -14,6 +14,10 @@
   let nextLetters: HTMLElement[] = [];
   let mountProgress = 0;
   let introEl: HTMLElement;
+  let isAudioMuted = $state(false);
+  let isAboutOpen = $state(false);
+  let isAboutClosing = $state(false);
+  let aboutCloseTimer: ReturnType<typeof setTimeout> | undefined;
 
   const clamp = (v: number, min = 0, max = 1) => Math.min(Math.max(v, min), max);
   const ease  = (v: number) => v * v * (3 - 2 * v);
@@ -311,6 +315,21 @@
     }
   }
 
+  function openAbout() {
+    if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
+    isAboutClosing = false;
+    isAboutOpen = true;
+  }
+
+  function closeAbout() {
+    isAboutClosing = true;
+    if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
+    aboutCloseTimer = setTimeout(() => {
+      isAboutOpen = false;
+      isAboutClosing = false;
+    }, 420);
+  }
+
   // ── Unica funzione che gestisce tutto — nessun conflitto ──
   function applyAllStyles() {
     // 1. Home scorre via
@@ -446,14 +465,29 @@
 <main bind:this={homeScreen} class="home">
   <header class="top-bar" aria-label="Navigazione principale">
     <a class="logo" href="/" aria-label="Fuorimenu home" onclick={reloadHome}>FM</a>
-    <button class="icon-button top-bar-audio" type="button" aria-label="Audio">
+    <button
+      class="icon-button top-bar-audio"
+      type="button"
+      aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+      aria-pressed={isAudioMuted}
+      onclick={() => { isAudioMuted = !isAudioMuted; }}
+    >
       <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
         <path d="M4 11.5h5l6-5v15l-6-5H4z" />
         <path d="M18.5 10a6 6 0 0 1 0 8" />
         <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+        {#if isAudioMuted}
+          <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
+        {/if}
       </svg>
     </button>
-    <button class="icon-button top-bar-menu" type="button" aria-label="Menu">
+    <button
+      class="icon-button top-bar-menu"
+      type="button"
+      aria-label="Apri sezione about"
+      aria-expanded={isAboutOpen}
+      onclick={openAbout}
+    >
       <span class="menu-icon" aria-hidden="true"></span>
     </button>
   </header>
@@ -532,14 +566,29 @@
 <section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenu">
   <header class="roles-top-bar" aria-label="Navigazione principale">
     <a class="logo" href="/" aria-label="Fuorimenu home" onclick={reloadHome}>FM</a>
-    <button class="icon-button top-bar-audio" type="button" aria-label="Audio">
+    <button
+      class="icon-button top-bar-audio"
+      type="button"
+      aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+      aria-pressed={isAudioMuted}
+      onclick={() => { isAudioMuted = !isAudioMuted; }}
+    >
       <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
         <path d="M4 11.5h5l6-5v15l-6-5H4z" />
         <path d="M18.5 10a6 6 0 0 1 0 8" />
         <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+        {#if isAudioMuted}
+          <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
+        {/if}
       </svg>
     </button>
-    <button class="icon-button top-bar-menu" type="button" aria-label="Menu">
+    <button
+      class="icon-button top-bar-menu"
+      type="button"
+      aria-label="Apri sezione about"
+      aria-expanded={isAboutOpen}
+      onclick={openAbout}
+    >
       <span class="menu-icon" aria-hidden="true"></span>
     </button>
   </header>
@@ -574,6 +623,64 @@
     {/each}
   </div>
 </section>
+
+{#if isAboutOpen}
+  <section
+    class="about-screen"
+    class:is-closing={isAboutClosing}
+    aria-labelledby="about-title"
+    data-node-id="256:1827"
+  >
+    <header class="about-top-bar" aria-label="Navigazione about">
+      <a class="logo about-logo" href="/" aria-label="Fuorimenu home" onclick={reloadHome}>FM</a>
+      <button
+        class="icon-button top-bar-audio about-audio"
+        type="button"
+        aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+        aria-pressed={isAudioMuted}
+        onclick={() => { isAudioMuted = !isAudioMuted; }}
+      >
+        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
+          <path d="M18.5 10a6 6 0 0 1 0 8" />
+          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+          {#if isAudioMuted}
+            <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
+          {/if}
+        </svg>
+      </button>
+      <button
+        class="icon-button top-bar-menu about-close"
+        type="button"
+        aria-label="Chiudi sezione about"
+        onclick={closeAbout}
+      >
+        <span class="close-icon" aria-hidden="true"></span>
+      </button>
+    </header>
+
+    <div class="about-copy" data-node-id="256:1831">
+      <h2 id="about-title" class="visually-hidden">About Fuorimenu</h2>
+      <p>
+        Questo progetto nasce nel corso di Web Design del Politecnico di Milano con l'obiettivo di raccontare il ruolo delle persone che, attraverso la cultura alimentare italiana, hanno contribuito a Milano Cortina 2026.
+      </p>
+      <p>
+        In un'esperienza digitale immersiva, il progetto esplora il lavoro di chi ha operato dietro le quinte dei Giochi Olimpici - chef, organizzatori e team di ristorazione - mettendo in luce il legame profondo tra tradizione culinaria italiana e performance sportiva.
+      </p>
+      <p>
+        Il racconto si basa sulle testimonianze e le storie reali delle persone che hanno preso parte alla cucina olimpica, portando ogni giorno sulle tavole degli atleti il meglio della gastronomia italiana.
+      </p>
+    </div>
+
+    <img
+      class="polimi-logo"
+      src="/images/politecnico-bianco.png"
+      alt="Politecnico Milano 1863"
+      data-node-id="256:1835"
+      draggable="false"
+    />
+  </section>
+{/if}
 
 
 <style>
@@ -636,6 +743,10 @@
     stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2;
   }
 
+  .volume-slash {
+    stroke-width: 2.8;
+  }
+
   .menu-icon, .menu-icon::before, .menu-icon::after {
     display: block; width: 18px; height: 2px;
     background: currentColor; border-radius: 999px;
@@ -645,6 +756,143 @@
   .menu-icon::after   { position: absolute; left: 0; content: ''; }
   .menu-icon::before  { top: -6px; }
   .menu-icon::after   { top:  6px; }
+
+  .close-icon,
+  .close-icon::before {
+    display: block;
+    width: 24px;
+    height: 2.4px;
+    background: currentColor;
+    border-radius: 999px;
+  }
+
+  .close-icon {
+    position: relative;
+    transform: rotate(45deg);
+  }
+
+  .close-icon::before {
+    position: absolute;
+    left: 0;
+    content: '';
+    transform: rotate(90deg);
+  }
+
+  .about-screen {
+    position: fixed;
+    z-index: 80;
+    inset: 0;
+    overflow: hidden;
+    background: var(--brand-500, #2a4484);
+    color: var(--background-50, #f8f3e9);
+    animation: about-curtain-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: right center;
+    will-change: clip-path, transform;
+  }
+
+  .about-screen.is-closing {
+    animation: about-curtain-out 420ms cubic-bezier(0.64, 0, 0.78, 0) both;
+  }
+
+  .about-top-bar {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    height: 102px;
+    padding: var(--unit-40) var(--unit-80);
+  }
+
+  .about-logo,
+  .about-audio,
+  .about-close {
+    color: var(--background-50, #f8f3e9);
+  }
+
+  .about-logo:hover,
+  .about-logo:focus-visible,
+  .about-audio:hover,
+  .about-audio:focus-visible,
+  .about-close:hover,
+  .about-close:focus-visible {
+    color: var(--accent-500, #fe4c00);
+  }
+
+  .about-audio {
+    justify-self: center;
+  }
+
+  .about-close {
+    justify-self: end;
+  }
+
+  .about-copy {
+    position: absolute;
+    top: 132px;
+    left: 80px;
+    box-sizing: border-box;
+    width: min(779px, calc(100vw - 160px));
+    max-height: calc(100svh - 250px);
+    overflow: hidden;
+    color: var(--background-50, #f8f3e9);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: clamp(18px, 1.45vw, 21px);
+    font-weight: 400;
+    line-height: 1.42;
+  }
+
+  .about-copy p {
+    margin: 0 0 1.12em;
+  }
+
+  .polimi-logo {
+    position: absolute;
+    left: 80px;
+    bottom: 48px;
+    width: min(250px, 36vw);
+    height: auto;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @keyframes about-curtain-in {
+    from {
+      clip-path: inset(0 0 0 100%);
+      transform: translateX(6%);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes about-curtain-out {
+    from {
+      clip-path: inset(0 0 0 0);
+      transform: translateX(0);
+    }
+    to {
+      clip-path: inset(0 0 0 100%);
+      transform: translateX(6%);
+    }
+  }
 
   .intro {
     position: absolute; z-index: 5; inset: 0;
@@ -988,7 +1236,24 @@
 
   @media (max-width: 700px) {
     .top-bar      { height: 88px; padding: 28px 24px; }
+    .about-top-bar { height: 88px; padding: 28px 24px; }
     .logo         { font-size: 34px; }
+    .close-icon,
+    .close-icon::before { width: 22px; }
+    .about-copy {
+      top: 132px;
+      left: 24px;
+      width: calc(100vw - 48px);
+      max-height: calc(100svh - 220px);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .about-copy p { margin-bottom: 0.95em; }
+    .polimi-logo {
+      left: 24px;
+      bottom: 24px;
+      width: min(180px, 48vw);
+    }
     .intro        { padding: 88px 24px 72px; }
     h1, .next-message { font-size: 24px; }
     .reel-card    { width: min(34vw, 132px); }
