@@ -12,29 +12,49 @@
   let roleCards: HTMLElement[] = [];
   let introLetters: HTMLElement[] = [];
   let nextLetters: HTMLElement[] = [];
-  let mountProgress = 0;
   let introEl: HTMLElement;
   let isAudioMuted = $state(false);
   let isAboutOpen = $state(false);
   let isAboutClosing = $state(false);
   let aboutCloseTimer: ReturnType<typeof setTimeout> | undefined;
-  let kitchenAudio: HTMLAudioElement | undefined;
-  let kitchenAudioFadeFrame = 0;
-  let kitchenAudioLoopFrame = 0;
-  let officeAudio: HTMLAudioElement | undefined;
-  let officeAudioFadeFrame = 0;
-  let officeAudioLoopFrame = 0;
-  let restaurantAudio: HTMLAudioElement | undefined;
-  let restaurantAudioFadeFrame = 0;
-  let restaurantAudioLoopFrame = 0;
+  let mountFadeTimer: ReturnType<typeof setTimeout> | undefined;
+  let mountFadeFrame = 0;
+  let audioFadeFrames: Partial<Record<AudioRole, number>> = {};
+  let audioLoopFrames: Partial<Record<AudioRole, number>> = {};
   let audioUnlocked = false;
-  const kitchenAudioMaxTime = 10;
-  const kitchenAudioTargetVolume = 0.42;
-  const officeAudioStartTime = 10;
-  const officeAudioMaxTime = 20;
-  const officeAudioTargetVolume = 0.95;
-  const restaurantAudioMaxTime = 9.7;
-  const restaurantAudioTargetVolume = 0.5;
+
+  type AudioRole = 'ufficio' | 'cucina' | 'servizio';
+  type RoleItem = {
+    title: AudioRole;
+    description: string;
+    speaker: string;
+    dialogue: string;
+    personSrc: string;
+  };
+
+  const roleAudio: Record<
+    AudioRole,
+    { src: string; startTime: number; maxTime: number; targetVolume: number; el?: HTMLAudioElement }
+  > = {
+    ufficio: {
+      src: '/sound/office.mp3',
+      startTime: 10,
+      maxTime: 20,
+      targetVolume: 0.95
+    },
+    cucina: {
+      src: '/sound/kitchen.mp3',
+      startTime: 0,
+      maxTime: 10,
+      targetVolume: 0.42
+    },
+    servizio: {
+      src: '/sound/restaurant.mp3',
+      startTime: 0,
+      maxTime: 9.7,
+      targetVolume: 0.5
+    }
+  };
 
   const clamp = (v: number, min = 0, max = 1) => Math.min(Math.max(v, min), max);
   const ease  = (v: number) => v * v * (3 - 2 * v);
@@ -98,7 +118,7 @@
   let floatingEls: HTMLElement[] = [];
   const brandScrollMax = 3.42;
 
-  const roleItems = [
+  const roleItems: RoleItem[] = [
     {
       title: 'ufficio',
       description: 'descrizione testo',
@@ -347,11 +367,18 @@
     }, 420);
   }
 
-  function fadeKitchenAudio(targetVolume: number, afterFade?: () => void) {
-    if (!kitchenAudio) return;
-    cancelAnimationFrame(kitchenAudioFadeFrame);
+  function cancelAudioFrame(store: Partial<Record<AudioRole, number>>, role: AudioRole) {
+    const frame = store[role];
+    if (frame) cancelAnimationFrame(frame);
+    store[role] = 0;
+  }
 
-    const audio = kitchenAudio;
+  function fadeAudio(role: AudioRole, targetVolume: number, afterFade?: () => void) {
+    const config = roleAudio[role];
+    const audio = config.el;
+    if (!audio) return;
+    cancelAudioFrame(audioFadeFrames, role);
+
     const startVolume = audio.volume;
     const startTime = performance.now();
     const duration = 520;
@@ -362,186 +389,71 @@
       audio.volume = startVolume + (targetVolume - startVolume) * eased;
 
       if (progress < 1) {
-        kitchenAudioFadeFrame = requestAnimationFrame(tick);
+        audioFadeFrames[role] = requestAnimationFrame(tick);
       } else {
         audio.volume = targetVolume;
+        audioFadeFrames[role] = 0;
         afterFade?.();
       }
     };
 
-    kitchenAudioFadeFrame = requestAnimationFrame(tick);
+    audioFadeFrames[role] = requestAnimationFrame(tick);
   }
 
-  function keepKitchenAudioLooping() {
-    if (!kitchenAudio) return;
-    if (kitchenAudio.currentTime >= kitchenAudioMaxTime) {
-      kitchenAudio.currentTime = 0;
+  function keepAudioLooping(role: AudioRole) {
+    const config = roleAudio[role];
+    const audio = config.el;
+    if (!audio) return;
+    if (audio.currentTime >= config.maxTime) {
+      audio.currentTime = config.startTime;
     }
-    kitchenAudioLoopFrame = requestAnimationFrame(keepKitchenAudioLooping);
+    audioLoopFrames[role] = requestAnimationFrame(() => keepAudioLooping(role));
   }
 
-  async function startKitchenAudio() {
-    if (!kitchenAudio || isAudioMuted) return;
-    cancelAnimationFrame(kitchenAudioFadeFrame);
-    cancelAnimationFrame(kitchenAudioLoopFrame);
-    kitchenAudio.loop = false;
-    if (kitchenAudio.volume === 0 || kitchenAudio.paused) kitchenAudio.volume = 0;
-    if (kitchenAudio.paused) {
-      kitchenAudio.currentTime = 0;
+  async function startRoleAudio(role: AudioRole) {
+    const config = roleAudio[role];
+    const audio = config.el;
+    if (!audio || isAudioMuted) return;
+
+    cancelAudioFrame(audioFadeFrames, role);
+    cancelAudioFrame(audioLoopFrames, role);
+    audio.loop = false;
+    if (audio.volume === 0 || audio.paused) audio.volume = 0;
+    if (audio.paused) {
+      audio.currentTime = config.startTime;
     }
 
     try {
-      await kitchenAudio.play();
-      kitchenAudioLoopFrame = requestAnimationFrame(keepKitchenAudioLooping);
-      fadeKitchenAudio(kitchenAudioTargetVolume);
+      await audio.play();
+      audioLoopFrames[role] = requestAnimationFrame(() => keepAudioLooping(role));
+      fadeAudio(role, config.targetVolume);
     } catch {
       // Browsers may block hover audio before the first user gesture.
     }
   }
 
-  function stopKitchenAudio() {
-    if (!kitchenAudio) return;
-    cancelAnimationFrame(kitchenAudioLoopFrame);
-    fadeKitchenAudio(0, () => {
-      kitchenAudio?.pause();
-      if (kitchenAudio) kitchenAudio.currentTime = 0;
-    });
-  }
+  function stopRoleAudio(role: AudioRole) {
+    const config = roleAudio[role];
+    const audio = config.el;
+    if (!audio) return;
 
-  function fadeOfficeAudio(targetVolume: number, afterFade?: () => void) {
-    if (!officeAudio) return;
-    cancelAnimationFrame(officeAudioFadeFrame);
-
-    const audio = officeAudio;
-    const startVolume = audio.volume;
-    const startTime = performance.now();
-    const duration = 520;
-
-    const tick = (now: number) => {
-      const progress = clamp((now - startTime) / duration);
-      const eased = ease(progress);
-      audio.volume = startVolume + (targetVolume - startVolume) * eased;
-
-      if (progress < 1) {
-        officeAudioFadeFrame = requestAnimationFrame(tick);
-      } else {
-        audio.volume = targetVolume;
-        afterFade?.();
-      }
-    };
-
-    officeAudioFadeFrame = requestAnimationFrame(tick);
-  }
-
-  function keepOfficeAudioLooping() {
-    if (!officeAudio) return;
-    if (officeAudio.currentTime >= officeAudioMaxTime) {
-      officeAudio.currentTime = officeAudioStartTime;
-    }
-    officeAudioLoopFrame = requestAnimationFrame(keepOfficeAudioLooping);
-  }
-
-  async function startOfficeAudio() {
-    if (!officeAudio || isAudioMuted) return;
-    cancelAnimationFrame(officeAudioFadeFrame);
-    cancelAnimationFrame(officeAudioLoopFrame);
-    officeAudio.loop = false;
-    if (officeAudio.volume === 0 || officeAudio.paused) officeAudio.volume = 0;
-    if (officeAudio.paused) {
-      officeAudio.currentTime = officeAudioStartTime;
-    }
-
-    try {
-      await officeAudio.play();
-      officeAudioLoopFrame = requestAnimationFrame(keepOfficeAudioLooping);
-      fadeOfficeAudio(officeAudioTargetVolume);
-    } catch {
-      // Browsers may block hover audio before the first user gesture.
-    }
-  }
-
-  function stopOfficeAudio() {
-    if (!officeAudio) return;
-    cancelAnimationFrame(officeAudioLoopFrame);
-    fadeOfficeAudio(0, () => {
-      officeAudio?.pause();
-      if (officeAudio) officeAudio.currentTime = officeAudioStartTime;
-    });
-  }
-
-  function fadeRestaurantAudio(targetVolume: number, afterFade?: () => void) {
-    if (!restaurantAudio) return;
-    cancelAnimationFrame(restaurantAudioFadeFrame);
-
-    const audio = restaurantAudio;
-    const startVolume = audio.volume;
-    const startTime = performance.now();
-    const duration = 520;
-
-    const tick = (now: number) => {
-      const progress = clamp((now - startTime) / duration);
-      const eased = ease(progress);
-      audio.volume = startVolume + (targetVolume - startVolume) * eased;
-
-      if (progress < 1) {
-        restaurantAudioFadeFrame = requestAnimationFrame(tick);
-      } else {
-        audio.volume = targetVolume;
-        afterFade?.();
-      }
-    };
-
-    restaurantAudioFadeFrame = requestAnimationFrame(tick);
-  }
-
-  function keepRestaurantAudioLooping() {
-    if (!restaurantAudio) return;
-    if (restaurantAudio.currentTime >= restaurantAudioMaxTime) {
-      restaurantAudio.currentTime = 0;
-    }
-    restaurantAudioLoopFrame = requestAnimationFrame(keepRestaurantAudioLooping);
-  }
-
-  async function startRestaurantAudio() {
-    if (!restaurantAudio || isAudioMuted) return;
-    cancelAnimationFrame(restaurantAudioFadeFrame);
-    cancelAnimationFrame(restaurantAudioLoopFrame);
-    restaurantAudio.loop = false;
-    if (restaurantAudio.volume === 0 || restaurantAudio.paused) restaurantAudio.volume = 0;
-    if (restaurantAudio.paused) {
-      restaurantAudio.currentTime = 0;
-    }
-
-    try {
-      await restaurantAudio.play();
-      restaurantAudioLoopFrame = requestAnimationFrame(keepRestaurantAudioLooping);
-      fadeRestaurantAudio(restaurantAudioTargetVolume);
-    } catch {
-      // Browsers may block hover audio before the first user gesture.
-    }
-  }
-
-  function stopRestaurantAudio() {
-    if (!restaurantAudio) return;
-    cancelAnimationFrame(restaurantAudioLoopFrame);
-    fadeRestaurantAudio(0, () => {
-      restaurantAudio?.pause();
-      if (restaurantAudio) restaurantAudio.currentTime = 0;
+    cancelAudioFrame(audioLoopFrames, role);
+    fadeAudio(role, 0, () => {
+      audio.pause();
+      audio.currentTime = config.startTime;
     });
   }
 
   function toggleAudioMuted() {
     isAudioMuted = !isAudioMuted;
     if (isAudioMuted) {
-      stopKitchenAudio();
-      stopOfficeAudio();
-      stopRestaurantAudio();
+      stopAllRoleAudio();
     }
   }
 
   async function unlockAmbientAudio() {
     if (audioUnlocked) return;
-    const audios = [kitchenAudio, officeAudio, restaurantAudio].filter(Boolean) as HTMLAudioElement[];
+    const audios = Object.values(roleAudio).map((config) => config.el).filter(Boolean) as HTMLAudioElement[];
     if (!audios.length) return;
 
     try {
@@ -559,6 +471,17 @@
     } catch {
       audioUnlocked = false;
     }
+  }
+
+  function stopAllRoleAudio() {
+    (Object.keys(roleAudio) as AudioRole[]).forEach(stopRoleAudio);
+  }
+
+  function cancelAllAudioFrames() {
+    (Object.keys(roleAudio) as AudioRole[]).forEach((role) => {
+      cancelAudioFrame(audioFadeFrames, role);
+      cancelAudioFrame(audioLoopFrames, role);
+    });
   }
 
   // ── Unica funzione che gestisce tutto — nessun conflitto ──
@@ -628,15 +551,19 @@
   }
 
   onMount(() => {
-    setTimeout(() => {
+    mountFadeTimer = setTimeout(() => {
       const mountStart    = performance.now();
       const mountDuration = 2000;
       const tickMount = (now: number) => {
         const o = ease(Math.min((now - mountStart) / mountDuration, 1));
         introEl?.style.setProperty('--mount-opacity', o.toFixed(3));
-        if (o < 1) requestAnimationFrame(tickMount);
+        if (o < 1) {
+          mountFadeFrame = requestAnimationFrame(tickMount);
+        } else {
+          mountFadeFrame = 0;
+        }
       };
-      requestAnimationFrame(tickMount);
+      mountFadeFrame = requestAnimationFrame(tickMount);
     }, 400);
 
     const updateFlow = (delta: number) => {
@@ -678,12 +605,10 @@
     window.addEventListener('pointerdown', unlockAmbientAudio, { passive: true });
     return () => {
       cancelAnimationFrame(floatingFrame);
-      cancelAnimationFrame(kitchenAudioFadeFrame);
-      cancelAnimationFrame(kitchenAudioLoopFrame);
-      cancelAnimationFrame(officeAudioFadeFrame);
-      cancelAnimationFrame(officeAudioLoopFrame);
-      cancelAnimationFrame(restaurantAudioFadeFrame);
-      cancelAnimationFrame(restaurantAudioLoopFrame);
+      if (mountFadeTimer) clearTimeout(mountFadeTimer);
+      if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
+      cancelAnimationFrame(mountFadeFrame);
+      cancelAllAudioFrames();
       window.removeEventListener('wheel',   onWheel);
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('pointerdown', unlockAmbientAudio);
@@ -754,7 +679,7 @@
       <article bind:this={reelCards[index]} class="reel-card" aria-label={`Reel ${index + 1}`}>
         <div class="reel-frame">
           {#if reel.src}
-            <video class="reel-video" src={reel.src} autoplay muted playsinline loop preload="auto"></video>
+            <video class="reel-video" src={reel.src} autoplay muted playsinline loop preload="metadata"></video>
           {:else}
             <div class="reel-placeholder" style="background:{reel.bg}"></div>
           {/if}
@@ -842,16 +767,8 @@
         class:is-cucina={item.title === 'cucina'}
         class:is-servizio={item.title === 'servizio'}
         class:has-dialogue={Boolean(item.dialogue)}
-        onpointerenter={() => {
-          if (item.title === 'cucina') startKitchenAudio();
-          if (item.title === 'ufficio') startOfficeAudio();
-          if (item.title === 'servizio') startRestaurantAudio();
-        }}
-        onpointerleave={() => {
-          if (item.title === 'cucina') stopKitchenAudio();
-          if (item.title === 'ufficio') stopOfficeAudio();
-          if (item.title === 'servizio') stopRestaurantAudio();
-        }}
+        onpointerenter={() => startRoleAudio(item.title)}
+        onpointerleave={() => stopRoleAudio(item.title)}
       >
         <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
         <div class="role-card-overlay"></div>
@@ -874,26 +791,14 @@
   </div>
 </section>
 
-<audio
-  bind:this={kitchenAudio}
-  src="/sound/kitchen.mp3"
-  preload="auto"
-  aria-hidden="true"
-></audio>
-
-<audio
-  bind:this={officeAudio}
-  src="/sound/office.mp3"
-  preload="auto"
-  aria-hidden="true"
-></audio>
-
-<audio
-  bind:this={restaurantAudio}
-  src="/sound/restaurant.mp3"
-  preload="auto"
-  aria-hidden="true"
-></audio>
+{#each Object.entries(roleAudio) as [role, config] (role)}
+  <audio
+    bind:this={config.el}
+    src={config.src}
+    preload="none"
+    aria-hidden="true"
+  ></audio>
+{/each}
 
 {#if isAboutOpen}
   <section

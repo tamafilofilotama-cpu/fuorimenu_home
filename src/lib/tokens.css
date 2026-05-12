@@ -3,6 +3,8 @@
 	--brand-500: #2a4484;
 	--accent-500: #fe4c00;
 	--background-50: #f8f3e9;
+	--unit-24: 24px;
+	--unit-32: 32px;
 	--unit-40: 40px;
 	--unit-80: 80px;
 
@@ -10,8 +12,8 @@
 	--brand\/500: var(--brand-500);
 	--accent\/500: var(--accent-500);
 	--background\/50: var(--background-50);
-    --unit\/24: var(--unit-24);
-    --unit\/32: var(--unit-32);
+	--unit\/24: var(--unit-24);
+	--unit\/32: var(--unit-32);
 	--unit\/40: var(--unit-40);
 	--unit\/80: var(--unit-80);
 }
