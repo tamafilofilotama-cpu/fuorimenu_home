@@ -14,6 +14,7 @@
   --unit-40: 40px;
   --unit-48: 48px;
   --unit-56: 56px;
+  --unit-60: 60px;
   --unit-64: 64px;
   --unit-72: 72px;
   --unit-80: 80px;
@@ -80,8 +81,12 @@
   --background-800: #553216;
   --background-900: #46230d;
 
+  /* Stroke scale */
+  --stroke-s: 2px;
+
   /* Site color aliases */
   --color-surface-page: var(--background-50);
+  --color-surface-panna: #f7f3ea;
   --color-surface-raised: var(--background-100);
   --color-surface-muted: var(--background-200);
   --color-surface-dark: #101318;
@@ -112,6 +117,10 @@
   --card-radius: var(--radius-xl);
   --card-radius-mobile: var(--radius-l);
   --card-border-width: var(--unit-4);
+  --card-action-size: var(--unit-60);
+  --card-action-size-mobile: var(--unit-48);
+  --card-action-radius: var(--radius-m);
+  --card-action-border-width: var(--stroke-s);
   --dialogue-radius: var(--radius-m);
   --dialogue-radius-mobile: var(--radius-m);
 
