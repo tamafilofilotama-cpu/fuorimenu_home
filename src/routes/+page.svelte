@@ -14,7 +14,9 @@
   let introLetters: HTMLElement[] = [];
   let nextLetters: HTMLElement[] = [];
   let introEl: HTMLElement;
+  let introAudioEl: HTMLElement;
   let isAudioMuted = $state(false);
+  let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
   let isAboutClosing = $state(false);
   let aboutCloseTimer: ReturnType<typeof setTimeout> | undefined;
@@ -229,6 +231,8 @@
   }
 
   function applyBrandLetters() {
+    isBrandWordSharp = brandProgress > 0.96 && brandProgress < 1.86;
+
     const n = brandLetterEls.length;
     brandLetterEls.forEach((el, i) => {
       if (!el) return;
@@ -552,6 +556,12 @@
     applyLetterStyles(introLetters, pageProgress, {
       start: 0.2, end: 0.5, windowSize: 0.08, invert: true, dy: 12
     });
+    const introAudioOut = ease(clamp((pageProgress - 0.2) / 0.24));
+    introAudioEl?.style.setProperty('--intro-audio-opacity', (1 - introAudioOut).toFixed(3));
+    introAudioEl?.style.setProperty('--intro-audio-y', `${(-introAudioOut * 12).toFixed(1)}px`);
+    if (introAudioEl) {
+      introAudioEl.style.pointerEvents = introAudioOut > 0.9 ? 'none' : 'auto';
+    }
 
     // 5. Lettere next: si rivelano con pageProgress
     applyLetterStyles(nextLetters, pageProgress, {
@@ -648,20 +658,39 @@
 
 <main bind:this={homeScreen} class="home">
   <section class="intro" aria-labelledby="intro-title" bind:this={introEl}>
-    <h1 id="intro-title" aria-label={introMessage}>
-      {#each introWords as group (group.index)}
-        {#if group.type === 'space'}
-          <span class="space" aria-hidden="true">&nbsp;</span>
-        {:else}
-          <span class="word" aria-hidden="true">
-            {#each group.characters as { letter, isAccent, index } (index)}
-              <span bind:this={introLetters[index]} class:accent-letter={isAccent}
-                >{letter}</span>
-            {/each}
-          </span>
-        {/if}
-      {/each}
-    </h1>
+    <div class="intro-copy">
+      <h1 id="intro-title" aria-label={introMessage}>
+        {#each introWords as group (group.index)}
+          {#if group.type === 'space'}
+            <span class="space" aria-hidden="true">&nbsp;</span>
+          {:else}
+            <span class="word" aria-hidden="true">
+              {#each group.characters as { letter, isAccent, index } (index)}
+                <span bind:this={introLetters[index]} class:accent-letter={isAccent}
+                  >{letter}</span>
+              {/each}
+            </span>
+          {/if}
+        {/each}
+      </h1>
+      <button
+        bind:this={introAudioEl}
+        class="icon-button intro-audio"
+        type="button"
+        aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+        aria-pressed={isAudioMuted}
+        onclick={toggleAudioMuted}
+      >
+        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
+          <path d="M18.5 10a6 6 0 0 1 0 8" />
+          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
+          {#if isAudioMuted}
+            <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
+          {/if}
+        </svg>
+      </button>
+    </div>
   </section>
 
   <section class="reel-layer" aria-label="Mockup reels in profondità">
@@ -711,7 +740,7 @@
   {/each}
 
   <div class="brand-lockup">
-    <p class="brand-word" aria-label={brandWord}>
+    <p class="brand-word" class:is-sharp={isBrandWordSharp} aria-label={brandWord}>
       {#each brandLetters as { letter }, index}
         <span bind:this={brandLetterEls[index]} class="brand-letter" aria-hidden="true"
           >{letter}</span>
@@ -1066,6 +1095,20 @@
     will-change: opacity;
   }
 
+  .intro-copy {
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+  }
+
+  .intro-audio {
+    pointer-events: auto;
+    opacity: var(--intro-audio-opacity, 1);
+    transform: translateY(var(--intro-audio-y, 0px));
+    transition: color 160ms ease, opacity 140ms linear, transform 140ms ease-out;
+    will-change: opacity, transform;
+  }
+
   h1, .next-message {
     width: min(434px, 100%); margin: 0; color: #2A4385;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -1199,12 +1242,15 @@
     display: flex;
     align-items: baseline;
     font-family: 'DynaPuff', system-ui, sans-serif;
-    font-size: clamp(72px, 12vw, 160px);
+    font-size: clamp(72px, 12vw, 144px);
     font-weight: 700;
     font-variation-settings: "wdth" 100;
     line-height: 1;
     color: var(--brand-500, #2A4385);
     transform-style: preserve-3d;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
   }
 
   .brand-letter {
@@ -1216,6 +1262,17 @@
       scale(var(--bl-scale, 4.5));
     transition: opacity 100ms linear, transform 100ms linear;
     will-change: opacity, transform;
+  }
+
+  .brand-word.is-sharp {
+    transform-style: flat;
+  }
+
+  .brand-word.is-sharp .brand-letter {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
   }
 
   .brand-subtitle {
