@@ -844,9 +844,6 @@
             <img class="role-person" src={item.personSrc} alt={item.speaker} draggable="false" />
           {/if}
         {/if}
-        <button class="role-action" type="button" aria-label={`Vai alla storia di ${item.speaker}`}>
-          <span class="role-action-icon" aria-hidden="true">→</span>
-        </button>
       </article>
     {/each}
   </div>
@@ -992,7 +989,7 @@
     width: 24px;
     height: 2.4px;
     background: currentColor;
-    border-radius: var(--card-action-radius);
+    border-radius: var(--radius-full);
   }
 
   .close-icon {
@@ -1013,7 +1010,7 @@
     inset: 0;
     overflow: hidden;
     background: var(--color-text-primary);
-    color: var(--color-text-inverse);
+    color: var(--color-surface-page);
     animation: about-curtain-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
     transform-origin: right center;
     will-change: clip-path, transform;
@@ -1351,9 +1348,9 @@
     top: 130px; left: var(--layout-page-gutter); right: var(--layout-page-gutter);
     height: min(620px, calc(100svh - 190px));
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 384px));
+    grid-template-columns: repeat(3, minmax(0, 420px));
     justify-content: space-between;
-    column-gap: 42px;
+    column-gap: var(--spacing-5);
     perspective: 1100px;
     perspective-origin: 50% 45%;
   }
@@ -1365,6 +1362,7 @@
     border: var(--card-border-width) solid var(--color-border-primary);
     border-radius: var(--card-radius);
     background: var(--color-text-primary);
+    cursor: pointer;
     opacity: var(--role-card-opacity, 0);
     transform:
       translateY(var(--role-card-y, 38vh))
@@ -1497,7 +1495,7 @@
   }
 
   .role-card.is-ufficio .role-person {
-    right: var(--ufficio-person-right, -24px);
+    right: var(--ufficio-person-right, -10px);
     bottom: var(--ufficio-person-bottom, -168px);
     height: var(--ufficio-person-height, min(124%, 590px));
   }
@@ -1505,95 +1503,6 @@
   .role-card.is-ufficio .role-dialogue {
     left: 20px;
     width: 164px;
-  }
-
-  .role-card.is-ufficio .role-action {
-    left: 20px;
-  }
-
-  .role-action {
-    position: absolute;
-    z-index: 6;
-    left: var(--spacing-5);
-    top: 50%;
-    display: grid;
-    place-items: center;
-    width: var(--card-action-size);
-    height: var(--card-action-size);
-    padding: var(--spacing-0);
-    color: var(--color-text-primary);
-    font-family: var(--font-display);
-    font-variant-ligatures: common-ligatures discretionary-ligatures contextual;
-    font-feature-settings: "liga" 1, "dlig" 1, "calt" 1, "kern" 1;
-    background: var(--color-surface-panna);
-    border: var(--card-action-border-width) solid var(--color-border-primary);
-    border-radius: var(--card-action-radius);
-    cursor: pointer;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transform:
-      translateX(calc((var(--card-action-size) + var(--spacing-8)) * 4))
-      translateY(-50%)
-      translateZ(86px)
-      rotate(-150deg)
-      scale(0.72);
-    transform-origin: 50% 50%;
-    transition:
-      color 160ms ease,
-      border-color 180ms ease,
-      opacity 220ms ease,
-      transform 520ms cubic-bezier(0.2, 1.3, 0.32, 1);
-    will-change: opacity, transform;
-  }
-
-  .role-action::before {
-    position: absolute;
-    z-index: 0;
-    inset: 0;
-    content: '';
-    background: var(--brand-500);
-    transform: scaleY(0);
-    transform-origin: bottom;
-    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .role-action-icon {
-    position: relative;
-    z-index: 1;
-    display: block;
-    font-family: var(--font-display);
-    font-size: var(--spacing-6);
-    font-weight: 700;
-    font-variation-settings: "wdth" 100;
-    font-style: normal;
-    line-height: normal;
-    transform: translateY(-1px);
-  }
-
-  .role-card:hover .role-action,
-  .role-card:focus-within .role-action,
-  .role-card:focus-visible .role-action {
-    opacity: 1;
-    pointer-events: auto;
-    transform:
-      translateX(var(--role-copy-x, 0px))
-      translateY(calc(-50% + var(--role-dialogue-y, 0px)))
-      translateZ(86px)
-      rotate(0deg)
-      scale(1);
-  }
-
-  .role-action:hover,
-  .role-action:focus-visible {
-    color: var(--color-text-inverse);
-    border-color: var(--color-text-inverse);
-    outline: none;
-  }
-
-  .role-action:hover::before,
-  .role-action:focus-visible::before {
-    transform: scaleY(1);
   }
 
   .role-card.has-dialogue:hover .role-card-bg,
@@ -1708,25 +1617,7 @@
       left: 14px;
       width: min(54vw, 160px);
     }
-    .role-card.is-ufficio .role-action {
-      left: 14px;
-    }
     .role-dialogue p { font-size: 11px; }
-    .role-action {
-      top: 50%;
-      left: var(--spacing-4);
-      width: var(--card-action-size-mobile);
-      height: var(--card-action-size-mobile);
-      transform:
-        translateX(calc((var(--card-action-size-mobile) + var(--spacing-6)) * 4))
-        translateY(-50%)
-        translateZ(86px)
-        rotate(-150deg)
-        scale(0.72);
-    }
-    .role-action-icon {
-      font-size: var(--spacing-5);
-    }
     .role-person {
       right: -16px; bottom: -6px;
       width: auto;
