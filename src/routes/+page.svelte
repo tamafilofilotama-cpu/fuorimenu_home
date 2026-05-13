@@ -7,6 +7,7 @@
   let homeScreen: HTMLElement;
   let nextScreen: HTMLElement;
   let brandScreen: HTMLElement;
+  let brandSubtitleEl: HTMLElement;
   let rolesScreen: HTMLElement;
   let reelCards: HTMLElement[] = [];
   let roleCards: HTMLElement[] = [];
@@ -95,7 +96,8 @@
 
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina olimpica...';
   const nextMessage     = 'Incontra Le persone che hanno reso tutto questo possibile.';
-  const brandWord       = 'Fuorimenù';
+  const brandWord       = 'FuoriMenù';
+  const brandSubtitle   = 'Dentro le cucine di Milano Cortina 2026';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
   const introWords      = groupWords(introCharacters);
@@ -130,7 +132,7 @@
       title: 'cucina',
       description: 'descrizione testo',
       speaker: 'Stefano Paganini',
-      dialogue: 'il mio ruolo ... seguimi nella mensa per saperne di più',
+      dialogue: 'il mio ruolo ... seguimi nella cucina olimpica per saperne di più',
       personSrc: '/images/stefano-paganini-new.png'
     },
     {
@@ -548,6 +550,10 @@
 
     // 6. Lettere brand
     applyBrandLetters();
+
+    const subtitleProgress = ease(clamp((brandProgress - 0.72) / 0.3));
+    brandSubtitleEl?.style.setProperty('--brand-subtitle-opacity', subtitleProgress.toFixed(3));
+    brandSubtitleEl?.style.setProperty('--brand-subtitle-y', `${((1 - subtitleProgress) * 14).toFixed(1)}px`);
   }
 
   onMount(() => {
@@ -720,12 +726,15 @@
     </div>
   {/each}
 
-  <p class="brand-word" aria-label="Fuorimenu">
-    {#each brandLetters as { letter }, index}
-      <span bind:this={brandLetterEls[index]} class="brand-letter" aria-hidden="true"
-        >{letter}</span>
-    {/each}
-  </p>
+  <div class="brand-lockup">
+    <p class="brand-word" aria-label={brandWord}>
+      {#each brandLetters as { letter }, index}
+        <span bind:this={brandLetterEls[index]} class="brand-letter" aria-hidden="true"
+          >{letter}</span>
+      {/each}
+    </p>
+    <p bind:this={brandSubtitleEl} class="brand-subtitle">{brandSubtitle}</p>
+  </div>
 </section>
 
 <section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenu">
@@ -1200,18 +1209,27 @@
     aspect-ratio: 205.888 / 235.624;
   }
 
+  .brand-lockup {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+    transform-style: preserve-3d;
+  }
+
   .brand-word {
-  position: relative; z-index: 3;
-  margin: 0;
-  display: flex; align-items: baseline;
-  font-family: 'DynaPuff', system-ui, sans-serif;
-  font-size: clamp(72px, 12vw, 160px);
-  font-weight: 700;                    
-  font-variation-settings: "wdth" 100;      
-  line-height: 1;
-  color: var(--brand-500, #2A4385);
-  transform-style: preserve-3d;
-}
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    font-family: 'DynaPuff', system-ui, sans-serif;
+    font-size: clamp(72px, 12vw, 160px);
+    font-weight: 700;
+    font-variation-settings: "wdth" 100;
+    line-height: 1;
+    color: var(--brand-500, #2A4385);
+    transform-style: preserve-3d;
+  }
 
   .brand-letter {
     display: inline-block;
@@ -1221,6 +1239,21 @@
       rotate(var(--bl-rotate, 0deg))
       scale(var(--bl-scale, 4.5));
     transition: opacity 100ms linear, transform 100ms linear;
+    will-change: opacity, transform;
+  }
+
+  .brand-subtitle {
+    max-width: calc(100vw - 48px);
+    margin: 0;
+    color: var(--brand-500, #2A4385);
+    font-family: 'DynaPuff', system-ui, sans-serif;
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1.2;
+    text-align: center;
+    opacity: var(--brand-subtitle-opacity, 0);
+    transform: translateY(var(--brand-subtitle-y, 14px));
+    transition: opacity 120ms linear, transform 140ms ease-out;
     will-change: opacity, transform;
   }
 
@@ -1435,6 +1468,8 @@
     .reel-card    { width: min(34vw, 132px); }
     .next-screen  { padding: 88px 24px 72px; }
     .brand-word   { font-size: clamp(48px, 14vw, 96px); }
+    .brand-lockup { gap: 12px; }
+    .brand-subtitle { font-size: 24px; }
     .floating-raviolo { width: clamp(86px, 28vw, 124px); }
     .floating-pizza { width: clamp(92px, 30vw, 132px); }
     .floating-fusillo { width: clamp(82px, 26vw, 118px); }
