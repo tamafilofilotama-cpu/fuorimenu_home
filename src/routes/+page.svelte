@@ -822,28 +822,12 @@
         class:is-servizio={item.title === 'servizio'}
         class:has-dialogue={Boolean(item.dialogue)}
         onpointerenter={() => startRoleAudio(item.title)}
-        onpointermove={(event) => tiltRoleCard(event, index)}
-        onpointerleave={() => {
-          stopRoleAudio(item.title);
-          resetRoleCard(index);
-        }}
+        onpointerleave={() => stopRoleAudio(item.title)}
       >
-        <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
-        <div class="role-card-overlay"></div>
         <div class="role-card-copy">
           <h2>{item.title}</h2>
           <p>{item.description}</p>
         </div>
-        {#if item.dialogue}
-          <div class="role-dialogue">
-            <p>
-              Sono <strong>{item.speaker}</strong> {item.dialogue}
-            </p>
-          </div>
-          {#if item.personSrc}
-            <img class="role-person" src={item.personSrc} alt={item.speaker} draggable="false" />
-          {/if}
-        {/if}
       </article>
     {/each}
   </div>
@@ -1360,8 +1344,8 @@
     overflow: hidden;
     min-height: 0;
     border: var(--card-border-width) solid var(--color-border-primary);
-    border-radius: var(--card-radius);
-    background: var(--color-text-primary);
+    border-radius: clamp(42px, 4.55vw, 65px);
+    background: var(--color-surface-page);
     cursor: pointer;
     opacity: var(--role-card-opacity, 0);
     transform:
@@ -1382,186 +1366,39 @@
 
   .role-card:hover,
   .role-card:focus-visible {
-    --role-hover-z: 24px;
-    --role-hover-scale: 1.018;
-    --role-shadow-alpha: 0.24;
-  }
-  
-
-  .role-card-bg {
-    position: absolute;
-    top: -20%; left: 50%;
-    width: 136%; height: 140%;
-    object-fit: cover;
-    transform:
-      translateX(calc(-50% + var(--role-bg-x, 0px)))
-      translateY(var(--role-bg-y, 0px))
-      translateZ(-24px)
-      scale(1.04);
-    transition: filter 260ms ease, transform 260ms ease;
-    user-select: none;
-    pointer-events: none;
-  }
-
-  .role-card-overlay {
-    position: absolute; inset: -3px;
-    height: auto;
-    border-radius: var(--card-radius);
-    background: var(--color-overlay-brand);
-    transition: background 260ms ease;
-    transform: translateZ(2px);
+    --role-hover-z: 0px;
+    --role-hover-scale: 1;
+    --role-shadow-alpha: 0;
   }
 
   .role-card-copy {
     position: absolute;
-    top: 88px; left: 0; right: 0;
+    top: 50%; left: var(--spacing-5); right: var(--spacing-5);
     display: grid; justify-items: center;
-    color: var(--color-text-inverse);
+    color: var(--color-text-primary);
     text-align: center;
-    transform: translateZ(34px);
+    transform: translateY(-50%) translateZ(34px);
     transition: transform 260ms ease;
   }
 
   .role-card-copy h2 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(34px, 3.45vw, 50px);
-    font-weight: 500;
+    font-size: clamp(42px, 4.1vw, 60px);
+    font-weight: 600;
     line-height: 1.5;
     letter-spacing: 0;
     font-variation-settings: "wdth" 100;
   }
 
   .role-card-copy p {
-    margin: -8px 0 0;
+    margin: -22px 0 0;
     font-family: var(--font-text);
-    font-size: 14px;
+    font-size: clamp(13px, 1.1vw, 16px);
     font-weight: 500;
     line-height: 1.5;
     letter-spacing: 0;
     transition: opacity 180ms ease;
-  }
-
-  .role-dialogue {
-    position: absolute; z-index: 3;
-    top: 112px; left: var(--spacing-5);
-    width: 184px;
-    box-sizing: border-box;
-    padding: 14px;
-    border-radius: var(--dialogue-radius);
-    background: var(--color-text-primary);
-    color: var(--color-text-inverse);
-    opacity: 0;
-    transform: translateX(-130%) translateZ(48px);
-    transition: opacity 260ms ease, transform 320ms ease;
-    will-change: transform, opacity;
-  }
-
-  .role-dialogue p {
-    margin: 0;
-    font-family: var(--font-text);
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: 0;
-  }
-
-  .role-dialogue strong {
-    font-weight: 800;
-    font-style: italic;
-  }
-
-  .role-person {
-    position: absolute; z-index: 4;
-    right: 20px; bottom: -168px;
-    width: auto;
-    height: min(132%, 628px);
-    opacity: 0;
-    transform:
-      translateX(42%)
-      translateX(var(--role-person-x, 0px))
-      translateY(var(--role-person-y, 0px))
-      translateZ(62px);
-    transition: opacity 280ms ease, transform 360ms ease;
-    user-select: none;
-    pointer-events: none;
-    will-change: transform, opacity;
-  }
-
-  .role-card.is-servizio .role-person {
-    right: var(--servizio-person-right, 2px);
-    bottom: var(--servizio-person-bottom, -168px);
-    height: var(--servizio-person-height, min(125%, 620px));
-  }
-
-  .role-card.is-cucina .role-person {
-    right: var(--cucina-person-right, 20px);
-    bottom: var(--cucina-person-bottom, -195px);
-    height: var(--cucina-person-height, min(132%, 628px));
-  }
-
-  .role-card.is-ufficio .role-person {
-    right: var(--ufficio-person-right, 2px);
-    bottom: var(--ufficio-person-bottom, -168px);
-    height: var(--ufficio-person-height, min(130%, 618px));
-  }
-
-  .role-card.is-ufficio .role-dialogue {
-    left: 20px;
-    width: 164px;
-  }
-
-  .role-card.has-dialogue:hover .role-card-bg,
-  .role-card.has-dialogue:focus-visible .role-card-bg {
-    filter: blur(2.5px);
-    transform:
-      translateX(calc(-50% + var(--role-bg-x, 0px)))
-      translateY(var(--role-bg-y, 0px))
-      translateZ(-24px)
-      scale(1.08);
-  }
-
-  .role-card.is-cucina:hover .role-card-overlay,
-  .role-card.is-cucina:focus-visible .role-card-overlay {
-    background: var(--color-overlay-cucina-strong);
-  }
-
-  .role-card.is-ufficio:hover .role-card-overlay,
-  .role-card.is-ufficio:focus-visible .role-card-overlay,
-  .role-card.is-servizio:hover .role-card-overlay,
-  .role-card.is-servizio:focus-visible .role-card-overlay {
-    background: var(--color-overlay-brand-strong);
-  }
-
-  .role-card.has-dialogue:hover .role-card-copy,
-  .role-card.has-dialogue:focus-visible .role-card-copy {
-    transform:
-      translateY(-78px)
-      translateX(var(--role-copy-x, 0px))
-      translateZ(58px);
-  }
-
-  .role-card.has-dialogue:hover .role-card-copy p,
-  .role-card.has-dialogue:focus-visible .role-card-copy p {
-    opacity: 0;
-  }
-
-  .role-card.has-dialogue:hover .role-dialogue,
-  .role-card.has-dialogue:focus-visible .role-dialogue {
-    opacity: 1;
-    transform:
-      translateX(var(--role-dialogue-x, 0px))
-      translateY(var(--role-dialogue-y, 0px))
-      translateZ(66px);
-  }
-
-  .role-card.has-dialogue:hover .role-person,
-  .role-card.has-dialogue:focus-visible .role-person {
-    opacity: 1;
-    transform:
-      translateX(var(--role-person-x, 0px))
-      translateY(var(--role-person-y, 0px))
-      translateZ(72px);
   }
 
   @media (max-width: 700px) {
@@ -1603,46 +1440,9 @@
       justify-content: stretch;
       transform: none;
     }
-    .role-card { min-height: 260px; border-radius: var(--card-radius-mobile); }
-    .role-card-bg { top: -24%; width: 116%; height: 150%; }
-    .role-card-overlay { height: 100%; border-radius: var(--card-radius-mobile); }
-    .role-card-copy { top: 36px; }
-    .role-card-copy h2 { font-size: clamp(32px, 10vw, 44px); }
-    .role-card-copy p { font-size: 12px; }
-    .role-card.has-dialogue:hover .role-card-copy,
-    .role-card.has-dialogue:focus-visible .role-card-copy {
-      transform: translateY(-22px) translateZ(58px);
-    }
-    .role-dialogue {
-      top: 74px; left: 14px;
-      width: min(54vw, 176px);
-      padding: 10px;
-      border-radius: var(--dialogue-radius-mobile);
-    }
-    .role-card.is-ufficio .role-dialogue {
-      left: 14px;
-      width: min(54vw, 160px);
-    }
-    .role-dialogue p { font-size: 11px; }
-    .role-person {
-      right: -4px; bottom: -6px;
-      width: auto;
-      height: min(86%, 274px);
-    }
-    .role-card.is-servizio .role-person {
-      right: var(--servizio-person-mobile-right, -6px);
-      bottom: var(--servizio-person-mobile-bottom, -6px);
-      height: var(--servizio-person-mobile-height, min(86%, 274px));
-    }
-    .role-card.is-cucina .role-person {
-      right: var(--cucina-person-mobile-right, -4px);
-      bottom: var(--cucina-person-mobile-bottom, -6px);
-      height: var(--cucina-person-mobile-height, min(86%, 274px));
-    }
-    .role-card.is-ufficio .role-person {
-      right: var(--ufficio-person-mobile-right, -8px);
-      bottom: var(--ufficio-person-mobile-bottom, -6px);
-      height: var(--ufficio-person-mobile-height, min(84%, 264px));
-    }
+    .role-card { min-height: 260px; border-radius: clamp(34px, 12vw, 54px); }
+    .role-card-copy { left: var(--spacing-4); right: var(--spacing-4); }
+    .role-card-copy h2 { font-size: clamp(34px, 12vw, 52px); }
+    .role-card-copy p { margin-top: -16px; font-size: 12px; }
   }
 </style>
