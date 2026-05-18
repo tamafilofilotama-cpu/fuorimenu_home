@@ -22,6 +22,7 @@
   let aboutCloseTimer: ReturnType<typeof setTimeout> | undefined;
   let mountFadeTimer: ReturnType<typeof setTimeout> | undefined;
   let mountFadeFrame = 0;
+  let flowFrame = 0;
   let audioFadeFrames: Partial<Record<AudioRole, number>> = {};
   let audioLoopFrames: Partial<Record<AudioRole, number>> = {};
   let audioUnlocked = false;
@@ -32,6 +33,7 @@
     description: string;
     speaker: string;
     dialogue: string;
+    hoverText: string;
     personSrc: string;
   };
 
@@ -120,7 +122,9 @@
   let floatingFrame = 0;
   let floatingLast = 0;
   let floatingEls: HTMLElement[] = [];
-  const brandScrollMax = 3.42;
+  const rolesRevealStart = 2;
+  const rolesRevealDuration = 0.78;
+  const brandScrollMax = rolesRevealStart + rolesRevealDuration;
 
   const roleItems: RoleItem[] = [
     {
@@ -128,6 +132,7 @@
       description: 'descrizione testo',
       speaker: 'Carlo Zarri',
       dialogue: "il mio ruolo ... seguimi nell'ufficio per saperne di più",
+      hoverText: "io sono carlo zarri seguimi nell'ufficio",
       personSrc: '/images/carlo-zarri.png'
     },
     {
@@ -135,6 +140,7 @@
       description: 'descrizione testo',
       speaker: 'Stefano Paganini',
       dialogue: 'il mio ruolo ... seguimi nella cucina per saperne di più',
+      hoverText: 'io sono stefano paganini seguimi in cucina',
       personSrc: '/images/stefano-paganini-new.png'
     },
     {
@@ -142,6 +148,7 @@
       description: 'descrizione testo',
       speaker: 'Ken Frank',
       dialogue: 'il mio ruolo ... seguimi nella mensa per saperne di più',
+      hoverText: 'io sono ken frank seguimi in sala',
       personSrc: '/images/ken-frank.png'
     }
   ];
@@ -570,7 +577,7 @@
       el.style.pointerEvents = fadeOut > 0.82 ? 'none' : 'auto';
     });
 
-    const rolesProgress = clamp((brandProgress - 2.48) / 0.94);
+    const rolesProgress = clamp((brandProgress - rolesRevealStart) / rolesRevealDuration);
     const rolesEase = ease(rolesProgress);
     if (rolesScreen) {
       rolesScreen.style.opacity = rolesEase.toFixed(3);
@@ -612,6 +619,11 @@
   }
 
   onMount(() => {
+    let queuedFlowDelta = 0;
+    const maxWheelStep = 0.1;
+    const maxQueuedFlow = 0.42;
+    const maxFrameStep = 0.022;
+
     mountFadeTimer = setTimeout(() => {
       const mountStart    = performance.now();
       const mountDuration = 2000;
@@ -648,14 +660,42 @@
       applyAllStyles();
     };
 
-    const onWheel   = (e: WheelEvent)    => { e.preventDefault(); updateFlow(e.deltaY / 1500); };
+    const playQueuedFlow = () => {
+      const step = clamp(Math.abs(queuedFlowDelta), 0, maxFrameStep) * Math.sign(queuedFlowDelta);
+      queuedFlowDelta -= step;
+      updateFlow(step);
+
+      if (Math.abs(queuedFlowDelta) > 0.001) {
+        flowFrame = requestAnimationFrame(playQueuedFlow);
+      } else {
+        queuedFlowDelta = 0;
+        flowFrame = 0;
+      }
+    };
+
+    const queueFlow = (delta: number) => {
+      queuedFlowDelta = clamp(queuedFlowDelta + delta, -maxQueuedFlow, maxQueuedFlow);
+      if (!flowFrame) flowFrame = requestAnimationFrame(playQueuedFlow);
+    };
+
+    const normalizeWheelDelta = (e: WheelEvent) => {
+      const unit = e.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? window.innerHeight
+          : 1;
+      const rawStep = (e.deltaY * unit) / 1500;
+      return clamp(rawStep, -maxWheelStep, maxWheelStep);
+    };
+
+    const onWheel   = (e: WheelEvent)    => { e.preventDefault(); queueFlow(normalizeWheelDelta(e)); };
     const onKeydown = (e: KeyboardEvent) => {
       unlockAmbientAudio();
       const map: Record<string, number> = {
-        ArrowDown: 0.08, PageDown: 0.08, ' ': 0.08,
-        ArrowUp: -0.08,  PageUp:  -0.08
+        ArrowDown: 0.1, PageDown: 0.1, ' ': 0.1,
+        ArrowUp: -0.1,  PageUp:  -0.1
       };
-      if (e.key in map) { e.preventDefault(); updateFlow(map[e.key]); }
+      if (e.key in map) { e.preventDefault(); queueFlow(map[e.key]); }
     };
 
     applyReelStyles();
@@ -666,6 +706,7 @@
     window.addEventListener('pointerdown', unlockAmbientAudio, { passive: true });
     return () => {
       cancelAnimationFrame(floatingFrame);
+      cancelAnimationFrame(flowFrame);
       if (mountFadeTimer) clearTimeout(mountFadeTimer);
       if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
       cancelAnimationFrame(mountFadeFrame);
@@ -822,12 +863,24 @@
         class:is-servizio={item.title === 'servizio'}
         class:has-dialogue={Boolean(item.dialogue)}
         onpointerenter={() => startRoleAudio(item.title)}
-        onpointerleave={() => stopRoleAudio(item.title)}
+        onpointermove={(event) => tiltRoleCard(event, index)}
+        onpointerleave={() => {
+          stopRoleAudio(item.title);
+          resetRoleCard(index);
+        }}
       >
+        <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
+        <div class="role-hover-panel">
+          <p>{item.hoverText}</p>
+        </div>
+        <div class="role-hover-notch" aria-hidden="true"></div>
         <div class="role-card-copy">
           <h2>{item.title}</h2>
           <p>{item.description}</p>
         </div>
+        {#if item.personSrc}
+          <img class="role-person" src={item.personSrc} alt={item.speaker} draggable="false" />
+        {/if}
       </article>
     {/each}
   </div>
@@ -1366,9 +1419,73 @@
 
   .role-card:hover,
   .role-card:focus-visible {
-    --role-hover-z: 0px;
-    --role-hover-scale: 1;
-    --role-shadow-alpha: 0;
+    --role-hover-z: 24px;
+    --role-hover-scale: 1.018;
+    --role-shadow-alpha: 0.24;
+  }
+
+  .role-card-bg {
+    position: absolute;
+    top: 24%; left: 50%;
+    width: 104%; height: 78%;
+    object-fit: cover;
+    opacity: 0;
+    filter: grayscale(1) opacity(0.38);
+    transform:
+      translateX(calc(-50% + var(--role-bg-x, 0px)))
+      translateY(var(--role-bg-y, 0px))
+      translateZ(-24px)
+      scale(1.04);
+    transition: opacity 220ms ease, filter 260ms ease, transform 260ms ease;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .role-hover-panel {
+    position: absolute; z-index: 3;
+    top: 0; left: 0; right: 0;
+    height: clamp(148px, 12.8vw, 195px);
+    display: grid;
+    place-items: center;
+    padding: var(--spacing-6) var(--spacing-7);
+    border-radius: clamp(38px, 4.35vw, 61px) clamp(38px, 4.35vw, 61px) 0 0;
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+    opacity: 0;
+    transform:
+      translateY(-18px)
+      translateX(var(--role-copy-x, 0px))
+      translateZ(54px);
+    transition: opacity 220ms ease, transform 300ms ease;
+    pointer-events: none;
+  }
+
+  .role-hover-panel p {
+    width: min(100%, 507px);
+    margin: 0;
+    font-family: var(--font-text);
+    font-size: clamp(20px, 2.18vw, 32px);
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0;
+    text-align: center;
+  }
+
+  .role-hover-notch {
+    position: absolute; z-index: 2;
+    top: clamp(118px, 10.7vw, 168px);
+    left: 50%;
+    width: clamp(46px, 4.5vw, 64px);
+    aspect-ratio: 1;
+    background: var(--color-text-primary);
+    opacity: 0;
+    transform:
+      translateX(-50%)
+      translateY(-16px)
+      translateZ(44px)
+      rotate(45deg);
+    transition: opacity 220ms ease, transform 300ms ease;
+    pointer-events: none;
   }
 
   .role-card-copy {
@@ -1399,6 +1516,82 @@
     line-height: 1.5;
     letter-spacing: 0;
     transition: opacity 180ms ease;
+  }
+
+  .role-person {
+    position: absolute; z-index: 4;
+    left: 50%; bottom: -2px;
+    width: auto;
+    height: min(68%, 520px);
+    opacity: 0;
+    transform:
+      translateX(calc(-50% + var(--role-person-x, 0px)))
+      translateY(calc(44px + var(--role-person-y, 0px)))
+      translateZ(72px);
+    transition: opacity 280ms ease, transform 360ms ease;
+    user-select: none;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  .role-card.is-servizio .role-person {
+    height: var(--servizio-person-height, min(69%, 526px));
+  }
+
+  .role-card.is-cucina .role-person {
+    height: var(--cucina-person-height, min(68%, 520px));
+  }
+
+  .role-card.is-ufficio .role-person {
+    height: var(--ufficio-person-height, min(68%, 518px));
+  }
+
+  .role-card.has-dialogue:hover .role-card-bg,
+  .role-card.has-dialogue:focus-visible .role-card-bg {
+    opacity: 1;
+    transform:
+      translateX(calc(-50% + var(--role-bg-x, 0px)))
+      translateY(var(--role-bg-y, 0px))
+      translateZ(-24px)
+      scale(1.08);
+  }
+
+  .role-card.has-dialogue:hover .role-card-copy,
+  .role-card.has-dialogue:focus-visible .role-card-copy {
+    opacity: 0;
+    transform:
+      translateY(calc(-50% - 14px))
+      translateX(var(--role-copy-x, 0px))
+      translateZ(58px);
+  }
+
+  .role-card.has-dialogue:hover .role-hover-panel,
+  .role-card.has-dialogue:focus-visible .role-hover-panel,
+  .role-card.has-dialogue:hover .role-hover-notch,
+  .role-card.has-dialogue:focus-visible .role-hover-notch {
+    opacity: 1;
+    transform:
+      translateX(var(--role-copy-x, 0px))
+      translateY(0)
+      translateZ(58px);
+  }
+
+  .role-card.has-dialogue:hover .role-hover-notch,
+  .role-card.has-dialogue:focus-visible .role-hover-notch {
+    transform:
+      translateX(calc(-50% + var(--role-dialogue-x, 0px)))
+      translateY(var(--role-dialogue-y, 0px))
+      translateZ(52px)
+      rotate(45deg);
+  }
+
+  .role-card.has-dialogue:hover .role-person,
+  .role-card.has-dialogue:focus-visible .role-person {
+    opacity: 1;
+    transform:
+      translateX(calc(-50% + var(--role-person-x, 0px)))
+      translateY(var(--role-person-y, 0px))
+      translateZ(72px);
   }
 
   @media (max-width: 700px) {
@@ -1444,5 +1637,29 @@
     .role-card-copy { left: var(--spacing-4); right: var(--spacing-4); }
     .role-card-copy h2 { font-size: clamp(34px, 12vw, 52px); }
     .role-card-copy p { margin-top: -16px; font-size: 12px; }
+    .role-card-bg {
+      top: 28%;
+      width: 116%;
+      height: 72%;
+    }
+    .role-hover-panel {
+      height: 96px;
+      padding: var(--spacing-4);
+      border-radius: clamp(30px, 11vw, 50px) clamp(30px, 11vw, 50px) 0 0;
+    }
+    .role-hover-panel p { font-size: clamp(15px, 5.2vw, 22px); }
+    .role-hover-notch {
+      top: 74px;
+      width: 38px;
+    }
+    .role-person {
+      height: min(70%, 300px);
+      bottom: -2px;
+    }
+    .role-card.is-servizio .role-person,
+    .role-card.is-cucina .role-person,
+    .role-card.is-ufficio .role-person {
+      height: min(70%, 300px);
+    }
   }
 </style>
