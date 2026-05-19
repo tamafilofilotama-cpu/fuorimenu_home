@@ -281,7 +281,7 @@
       speaker: 'Stefano Paganini',
       dialogue: 'il mio ruolo ... seguimi nella cucina per saperne di più',
       hoverText: 'io sono stefano paganini seguimi in cucina',
-      personSrc: '/images/stefano-paganini-new.png'
+      personSrc: '/images/stefano-paganini-figma.png'
     },
     {
       title: 'servizio',
@@ -1550,11 +1550,22 @@
     position: absolute;
     z-index: 12;
     inset: var(--role-inner-border-inset);
-    border: var(--role-inner-border-width) solid var(--color-border-primary);
+    border: var(--card-border-width) solid var(--color-border-primary);
     border-radius: calc(var(--role-card-radius) - var(--role-inner-border-inset));
     content: '';
     pointer-events: none;
     transform: translateZ(96px);
+  }
+
+  .role-card::after {
+    position: absolute;
+    z-index: 11;
+    inset: 0;
+    border: var(--role-inner-border-inset) solid var(--color-surface-page);
+    border-radius: var(--role-card-radius);
+    content: '';
+    pointer-events: none;
+    transform: translateZ(92px);
   }
 
   .role-card:hover,
@@ -1657,7 +1668,7 @@
 
   .role-person {
     position: absolute; z-index: 4;
-    left: 50%; bottom: -188px;
+    left: 50%; bottom: -20px;
     width: auto;
     height: min(92%, 720px);
     opacity: 0;
@@ -1676,7 +1687,7 @@
   }
 
   .role-card.is-cucina .role-person {
-    height: var(--cucina-person-height, min(92%, 720px));
+    height: var(--cucina-person-height, min(60%, 720px));
   }
 
   .role-card.is-ufficio .role-person {
