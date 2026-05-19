@@ -17,6 +17,7 @@
   let introEl: HTMLElement;
   let introAudioEl: HTMLElement;
   let isAudioMuted = $state(false);
+  let audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
   let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
   let aboutScreenEl = $state<HTMLElement>();
@@ -24,11 +25,12 @@
   let mountFadeTween: gsap.core.Tween | undefined;
   let mountFadeDelay: gsap.core.Tween | undefined;
   let flowTween: gsap.core.Tween | undefined;
-  let audioFadeTweens: Partial<Record<AudioRole, gsap.core.Tween>> = {};
-  let audioLoopFrames: Partial<Record<AudioRole, number>> = {};
+  const audioFadeTweens: Partial<Record<AudioRole, gsap.core.Tween>> = {};
+  const audioLoopFrames: Partial<Record<AudioRole, number>> = {};
   let audioUnlocked = false;
 
-  type AudioRole = 'ufficio' | 'cucina' | 'servizio';
+  const audioRoles = ['ufficio', 'cucina', 'servizio'] as const;
+  type AudioRole = (typeof audioRoles)[number];
   type RoleItem = {
     title: AudioRole;
     description: string;
@@ -61,9 +63,36 @@
       targetVolume: 0.5
     }
   };
+  const roleAudioEntries = audioRoles.map((role) => ({ role, config: roleAudio[role] }));
 
   const clamp = (v: number, min = 0, max = 1) => Math.min(Math.max(v, min), max);
   const ease  = (v: number) => v * v * (3 - 2 * v);
+  const fixed = (v: number, digits = 3) => v.toFixed(digits);
+  const px = (v: number, digits = 1) => `${v.toFixed(digits)}px`;
+  const deg = (v: number, digits = 2) => `${v.toFixed(digits)}deg`;
+  const vh = (v: number, digits = 1) => `${v.toFixed(digits)}vh`;
+  const vw = (v: number, digits = 2) => `${v.toFixed(digits)}vw`;
+
+  type CssVars = Record<`--${string}`, string | number>;
+  type LetterStyleOptions = { start: number; end: number; windowSize: number; invert: boolean; dy: number };
+
+  function setCssVars(el: HTMLElement | undefined, vars: CssVars) {
+    if (el) gsap.set(el, vars);
+  }
+
+  function setLayerState(el: HTMLElement | undefined, opacity: number, isInteractive: boolean) {
+    if (!el) return;
+    gsap.set(el, { opacity: fixed(opacity) });
+    el.style.pointerEvents = isInteractive ? 'auto' : 'none';
+  }
+
+  function getPointerOffset(e: PointerEvent, el: HTMLElement) {
+    const rect = el.getBoundingClientRect();
+    return {
+      nx: (e.clientX - rect.left) / rect.width - 0.5,
+      ny: (e.clientY - rect.top) / rect.height - 0.5
+    };
+  }
 
   function parseMessage(msg: string, accentWord: string) {
     const start = msg.indexOf(accentWord);
@@ -108,17 +137,10 @@
   const introWords      = groupWords(introCharacters);
 
   const brandLetters = brandWord.split('').map((letter, i) => ({ letter, i }));
-  const brandOrder   = [...brandLetters.map((_, i) => i)].sort(() => Math.random() - 0.5);
-  const brandArrivalRank: number[] = new Array(brandLetters.length);
-  brandOrder.forEach((letterIndex, rank) => { brandArrivalRank[letterIndex] = rank; });
-  const brandBurstOrder = [...brandLetters.map((_, i) => i)].sort(() => Math.random() - 0.5);
-  const brandBurstRank: number[] = new Array(brandLetters.length);
-  const brandBurstMotion = brandLetters.map(() => ({
-    x: (Math.random() - 0.5) * 36,
-    y: -22 - Math.random() * 28,
-    rotate: (Math.random() - 0.5) * 34
-  }));
-  brandBurstOrder.forEach((letterIndex, rank) => { brandBurstRank[letterIndex] = rank; });
+  const brandLetterIndexes = brandLetters.map((_, i) => i);
+  let brandArrivalRank: number[] = new Array(brandLetters.length).fill(0);
+  let brandBurstRank: number[] = new Array(brandLetters.length).fill(0);
+  let brandBurstMotion = brandLetters.map(() => ({ x: 0, y: 0, rotate: 0 }));
   let brandLetterEls: HTMLElement[] = [];
   let floatingEls: HTMLElement[] = [];
   const rolesRevealStart = 2;
@@ -128,6 +150,121 @@
   const roleCardRevealDuration = 0.24;
   const brandScrollMax = rolesRevealStart + rolesRevealDuration;
   const flowTotalMax = 2 + brandScrollMax;
+  const introLetterOut: LetterStyleOptions = { start: 0.2, end: 0.5, windowSize: 0.08, invert: true, dy: 12 };
+  const nextLetterIn: LetterStyleOptions = { start: 0.45, end: 0.92, windowSize: 0.07, invert: false, dy: 12 };
+  const aboutClosedVars = { clipPath: 'inset(0 0 0 100%)', xPercent: 6 };
+  const aboutOpenVars = { clipPath: 'inset(0 0 0 0%)', xPercent: 0 };
+  const aboutMotion = {
+    openDuration: 0.52,
+    closeDuration: 0.42,
+    openEase: 'power3.out',
+    closeEase: 'power3.in'
+  };
+  const audioFadeMotion = { duration: 0.52, ease: 'power2.inOut' };
+  const mountFadeMotion = { delay: 0.4, duration: 2, ease: 'power2.out' };
+  const flowMotion = {
+    duration: 1.18,
+    ease: 'power3.out',
+    maxWheelStep: 0.055,
+    maxTargetLead: 0.34,
+    reelScrollSlowdown: 0.5,
+    reelMaxTargetLead: 0.2
+  };
+  const keyFlowSteps: Record<string, number> = {
+    ArrowDown: 0.065,
+    PageDown: 0.065,
+    ' ': 0.065,
+    ArrowUp: -0.065,
+    PageUp: -0.065
+  };
+  const roleCardResetVars: CssVars = {
+    '--role-tilt-x': '0deg',
+    '--role-tilt-y': '0deg',
+    '--role-bg-x': '0px',
+    '--role-bg-y': '0px',
+    '--role-copy-x': '0px',
+    '--role-dialogue-x': '0px',
+    '--role-dialogue-y': '0px',
+    '--role-person-x': '0px',
+    '--role-person-y': '0px'
+  };
+  const brandLetterMotion = {
+    sharpStart: 0.96,
+    sharpEnd: 1.86,
+    arrivalSpread: 0.6,
+    arrivalDuration: 0.18,
+    arrivalDepth: 600,
+    introScale: 3.5,
+    opacityRamp: 0.25,
+    burstStart: 1.9,
+    burstDuration: 0.66,
+    burstSpread: 0.5,
+    burstStaggerDuration: 0.14,
+    burstScale: 1.35
+  };
+  const reelMotion = {
+    stagger: 0.105,
+    startOffset: 0.04,
+    duration: 0.48,
+    zStart: -980,
+    zRange: 1850,
+    scaleStart: 0.28,
+    scaleRange: 4.2,
+    opacityInDuration: 0.18,
+    opacityOutStart: 0.76,
+    opacityOutDuration: 0.24,
+    rotateStartRatio: 0.35,
+    rotateEndRatio: 0.65
+  };
+  const floatingMotion = {
+    maxDelta: 0.032,
+    minPad: 16,
+    padRatio: 0.035,
+    hoverInDuration: 0.2,
+    hoverOutDuration: 0.28,
+    hoverStepMultiplier: 4,
+    hoverSpeedBoost: 0.75,
+    hoverSpinBoost: 0.7,
+    tiltDamping: 0.88,
+    driftYRatio: 0.82,
+    driftRotateRatio: 0.7,
+    driftRotateAmount: 5,
+    pointerTilt: 22,
+    pointerTiltLimit: 14,
+    hoverZ: 28,
+    hoverScale: 0.035,
+    shadowAlpha: 0.28
+  };
+  const roleTiltMotion = {
+    tiltX: 11,
+    tiltY: 13,
+    tiltXLimit: 7,
+    tiltYLimit: 8,
+    bgX: -8.1,
+    bgY: -4.9,
+    copyX: 2.7,
+    dialogueX: 3.2,
+    dialogueY: 1.7,
+    personX: 6.3,
+    personY: 2.8
+  };
+  const floatingExitMotion = {
+    start: 1.08,
+    duration: 0.64,
+    fadeStart: 0.72,
+    fadeDuration: 0.28,
+    scaleLoss: 0.08,
+    pointerCutoff: 0.82
+  };
+  const introAudioMotion = { start: 0.2, duration: 0.24, y: -12, pointerCutoff: 0.9 };
+  const brandSubtitleMotion = {
+    inStart: 0.7,
+    inDuration: 0.22,
+    outStart: 2.04,
+    outDuration: 0.18,
+    enterY: 14,
+    exitY: -16
+  };
 
   const roleItems: RoleItem[] = [
     {
@@ -222,10 +359,35 @@
     { src: '/videos/4.mp4',        bg: 'var(--reel-placeholder-lavender)', fromX: -10, fromY: -2, toX: -40, toY:   6, rotate:  -5 }
   ];
 
+  function shuffleIndexes(indexes: number[]) {
+    const shuffled = [...indexes];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  function rankOrder(order: number[]) {
+    const ranks = new Array(order.length).fill(0);
+    order.forEach((letterIndex, rank) => { ranks[letterIndex] = rank; });
+    return ranks;
+  }
+
+  function randomizeBrandLetters() {
+    brandArrivalRank = rankOrder(shuffleIndexes(brandLetterIndexes));
+    brandBurstRank = rankOrder(shuffleIndexes(brandLetterIndexes));
+    brandBurstMotion = brandLetters.map(() => ({
+      x: (Math.random() - 0.5) * 36,
+      y: -22 - Math.random() * 28,
+      rotate: (Math.random() - 0.5) * 34
+    }));
+  }
+
   function applyLetterStyles(
     letters: HTMLElement[],
     progress: number,
-    opts: { start: number; end: number; windowSize: number; invert: boolean; dy: number }
+    opts: LetterStyleOptions
   ) {
     const { start, end, windowSize, invert, dy } = opts;
     const stagger = (end - start) / Math.max(letters.length - 1, 1);
@@ -235,47 +397,51 @@
       const e       = ease(local);
       const opacity = invert ? 1 - e : e;
       const ty      = invert ? e * -dy : (1 - e) * dy;
-      el.style.setProperty('--letter-opacity', opacity.toFixed(3));
-      el.style.setProperty('--letter-y',       `${ty.toFixed(1)}px`);
+      setCssVars(el, {
+        '--letter-opacity': fixed(opacity),
+        '--letter-y': px(ty)
+      });
     });
   }
 
   function applyBrandLetters() {
-    isBrandWordSharp = brandProgress > 0.96 && brandProgress < 1.86;
+    isBrandWordSharp = brandProgress > brandLetterMotion.sharpStart && brandProgress < brandLetterMotion.sharpEnd;
 
     const n = brandLetterEls.length;
     brandLetterEls.forEach((el, i) => {
       if (!el) return;
       const rank    = brandArrivalRank[i];
-      const stagger = 0.6 / Math.max(n - 1, 1);
-      const local   = clamp((clamp(brandProgress) - rank * stagger) / 0.18);
+      const stagger = brandLetterMotion.arrivalSpread / Math.max(n - 1, 1);
+      const local   = clamp((clamp(brandProgress) - rank * stagger) / brandLetterMotion.arrivalDuration);
       const e       = ease(local);
       const burstRank = brandBurstRank[i];
-      const burstStagger = 0.5 / Math.max(n - 1, 1);
-      const burstProgress = clamp((brandProgress - 1.9) / 0.66);
-      const burstLocal = clamp((burstProgress - burstRank * burstStagger) / 0.14);
+      const burstStagger = brandLetterMotion.burstSpread / Math.max(n - 1, 1);
+      const burstProgress = clamp((brandProgress - brandLetterMotion.burstStart) / brandLetterMotion.burstDuration);
+      const burstLocal = clamp((burstProgress - burstRank * burstStagger) / brandLetterMotion.burstStaggerDuration);
       const burst = ease(burstLocal);
       const burstMotion = brandBurstMotion[i];
-      el.style.setProperty('--bl-z',       `${((1 - e) * 600).toFixed(1)}px`);
-      el.style.setProperty('--bl-scale',   (1 + (1 - e) * 3.5 + burst * 1.35).toFixed(3));
-      el.style.setProperty('--bl-opacity', (clamp(local / 0.25) * (1 - burst)).toFixed(3));
-      el.style.setProperty('--bl-x',       `${(burstMotion.x * burst).toFixed(1)}px`);
-      el.style.setProperty('--bl-y',       `${(burstMotion.y * burst).toFixed(1)}px`);
-      el.style.setProperty('--bl-rotate',  `${(burstMotion.rotate * burst).toFixed(1)}deg`);
+      setCssVars(el, {
+        '--bl-z': px((1 - e) * brandLetterMotion.arrivalDepth),
+        '--bl-scale': fixed(1 + (1 - e) * brandLetterMotion.introScale + burst * brandLetterMotion.burstScale),
+        '--bl-opacity': fixed(clamp(local / brandLetterMotion.opacityRamp) * (1 - burst)),
+        '--bl-x': px(burstMotion.x * burst),
+        '--bl-y': px(burstMotion.y * burst),
+        '--bl-rotate': deg(burstMotion.rotate * burst, 1)
+      });
     });
   }
 
   function getReelPresentation(index: number) {
     const reel  = reels[index];
-    const local = clamp((reelProgress - index * 0.105 - 0.04) / 0.48);
+    const local = clamp((reelProgress - index * reelMotion.stagger - reelMotion.startOffset) / reelMotion.duration);
     const e     = ease(local);
     return {
-      z:       -980 + e * 1850,
-      scale:   0.28 + e * 4.2,
-      opacity: clamp(local / 0.18) * (1 - clamp((local - 0.76) / 0.24)),
+      z:       reelMotion.zStart + e * reelMotion.zRange,
+      scale:   reelMotion.scaleStart + e * reelMotion.scaleRange,
+      opacity: clamp(local / reelMotion.opacityInDuration) * (1 - clamp((local - reelMotion.opacityOutStart) / reelMotion.opacityOutDuration)),
       x:       reel.fromX + (reel.toX - reel.fromX) * e,
       y:       reel.fromY + (reel.toY - reel.fromY) * e,
-      rotate:  reel.rotate * (0.35 + e * 0.65)
+      rotate:  reel.rotate * (reelMotion.rotateStartRatio + e * reelMotion.rotateEndRatio)
     };
   }
 
@@ -283,22 +449,24 @@
     reelCards.forEach((card, i) => {
       if (!card) return;
       const { z, scale, opacity, x, y, rotate } = getReelPresentation(i);
-      card.style.setProperty('--x',       `${x.toFixed(2)}vw`);
-      card.style.setProperty('--y',       `${y.toFixed(2)}vh`);
-      card.style.setProperty('--z',       `${z.toFixed(1)}px`);
-      card.style.setProperty('--scale',   scale.toFixed(3));
-      card.style.setProperty('--rotate',  `${rotate.toFixed(2)}deg`);
-      card.style.setProperty('--opacity', opacity.toFixed(3));
+      setCssVars(card, {
+        '--x': vw(x),
+        '--y': vh(y, 2),
+        '--z': px(z),
+        '--scale': fixed(scale),
+        '--rotate': deg(rotate),
+        '--opacity': fixed(opacity)
+      });
     });
   }
 
   function moveFloatingAssets(time: number, deltaTime: number) {
     if (!brandScreen) return;
 
-    const dt = Math.min(deltaTime / 1000, 0.032);
+    const dt = Math.min(deltaTime / 1000, floatingMotion.maxDelta);
 
     const bounds = brandScreen.getBoundingClientRect();
-    const pad    = Math.max(16, Math.min(bounds.width, bounds.height) * 0.035);
+    const pad    = Math.max(floatingMotion.minPad, Math.min(bounds.width, bounds.height) * floatingMotion.padRatio);
 
     floatingAssets.forEach((asset, index) => {
       const el = floatingEls[index];
@@ -313,16 +481,16 @@
       const spin = asset.spin;
       const driftTime = time * wobble.speed + wobble.phase;
       const hoverTarget = motion.hover ? 1 : 0;
-      const hoverStep = dt / (motion.hover ? 0.2 : 0.28);
+      const hoverStep = dt / (motion.hover ? floatingMotion.hoverInDuration : floatingMotion.hoverOutDuration);
       motion.hoverProgress = clamp(
-        motion.hoverProgress + (hoverTarget - motion.hoverProgress) * hoverStep * 4
+        motion.hoverProgress + (hoverTarget - motion.hoverProgress) * hoverStep * floatingMotion.hoverStepMultiplier
       );
       const hoverEase = ease(motion.hoverProgress);
-      const hoverBoost = 1 + hoverEase * 0.75;
+      const hoverBoost = 1 + hoverEase * floatingMotion.hoverSpeedBoost;
 
       motion.x += motion.vx * dt * hoverBoost;
       motion.y += motion.vy * dt * hoverBoost;
-      motion.spinAngle = (motion.spinAngle + spin.speed * dt * (1 + hoverEase * 0.7)) % 360;
+      motion.spinAngle = (motion.spinAngle + spin.speed * dt * (1 + hoverEase * floatingMotion.hoverSpinBoost)) % 360;
 
       if (motion.x <= pad || motion.x >= maxX) {
         motion.x  = clamp(motion.x, pad, maxX);
@@ -335,65 +503,61 @@
       }
 
       if (!motion.hover) {
-        motion.tiltX *= 0.88;
-        motion.tiltY *= 0.88;
+        motion.tiltX *= floatingMotion.tiltDamping;
+        motion.tiltY *= floatingMotion.tiltDamping;
       }
 
-      el.style.setProperty('--float-x', `${(motion.x + Math.sin(driftTime) * wobble.x).toFixed(1)}px`);
-      el.style.setProperty('--float-y', `${(motion.y + Math.cos(driftTime * 0.82) * wobble.y).toFixed(1)}px`);
-      el.style.setProperty('--float-tilt-x', `${motion.tiltX.toFixed(2)}deg`);
-      el.style.setProperty('--float-tilt-y', `${motion.tiltY.toFixed(2)}deg`);
-      el.style.setProperty(
-        '--float-rotate',
-        `${(spin.phase + motion.spinAngle + Math.sin(driftTime * 0.7) * 5).toFixed(2)}deg`
-      );
-      el.style.setProperty('--float-hover-z', `${(hoverEase * 28).toFixed(1)}px`);
-      el.style.setProperty('--float-hover-scale', (1 + hoverEase * 0.035).toFixed(3));
-      el.style.setProperty('--float-shadow-alpha', (hoverEase * 0.28).toFixed(3));
+      setCssVars(el, {
+        '--float-x': px(motion.x + Math.sin(driftTime) * wobble.x),
+        '--float-y': px(motion.y + Math.cos(driftTime * floatingMotion.driftYRatio) * wobble.y),
+        '--float-tilt-x': deg(motion.tiltX),
+        '--float-tilt-y': deg(motion.tiltY),
+        '--float-rotate': deg(spin.phase + motion.spinAngle + Math.sin(driftTime * floatingMotion.driftRotateRatio) * floatingMotion.driftRotateAmount),
+        '--float-hover-z': px(hoverEase * floatingMotion.hoverZ),
+        '--float-hover-scale': fixed(1 + hoverEase * floatingMotion.hoverScale),
+        '--float-shadow-alpha': fixed(hoverEase * floatingMotion.shadowAlpha)
+      });
     });
-
   }
 
   function tiltFloatingAsset(e: PointerEvent, index: number) {
     const el = floatingEls[index];
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const nx   = (e.clientX - rect.left) / rect.width - 0.5;
-    const ny   = (e.clientY - rect.top) / rect.height - 0.5;
-    floatingAssets[index].motion.tiltX = clamp(-ny * 22, -14, 14);
-    floatingAssets[index].motion.tiltY = clamp(nx * 22, -14, 14);
+    const { nx, ny } = getPointerOffset(e, el);
+    floatingAssets[index].motion.tiltX = clamp(
+      -ny * floatingMotion.pointerTilt,
+      -floatingMotion.pointerTiltLimit,
+      floatingMotion.pointerTiltLimit
+    );
+    floatingAssets[index].motion.tiltY = clamp(
+      nx * floatingMotion.pointerTilt,
+      -floatingMotion.pointerTiltLimit,
+      floatingMotion.pointerTiltLimit
+    );
   }
 
   function tiltRoleCard(e: PointerEvent, index: number) {
     const card = roleCards[index];
     if (!card) return;
 
-    const rect = card.getBoundingClientRect();
-    const nx = (e.clientX - rect.left) / rect.width - 0.5;
-    const ny = (e.clientY - rect.top) / rect.height - 0.5;
-    card.style.setProperty('--role-tilt-x', `${clamp(-ny * 11, -7, 7).toFixed(2)}deg`);
-    card.style.setProperty('--role-tilt-y', `${clamp(nx * 13, -8, 8).toFixed(2)}deg`);
-    card.style.setProperty('--role-bg-x', `${(nx * -8.1).toFixed(1)}px`);
-    card.style.setProperty('--role-bg-y', `${(ny * -4.9).toFixed(1)}px`);
-    card.style.setProperty('--role-copy-x', `${(nx * 2.7).toFixed(1)}px`);
-    card.style.setProperty('--role-dialogue-x', `${(nx * 3.2).toFixed(1)}px`);
-    card.style.setProperty('--role-dialogue-y', `${(ny * 1.7).toFixed(1)}px`);
-    card.style.setProperty('--role-person-x', `${(nx * 6.3).toFixed(1)}px`);
-    card.style.setProperty('--role-person-y', `${(ny * 2.8).toFixed(1)}px`);
+    const { nx, ny } = getPointerOffset(e, card);
+    setCssVars(card, {
+      '--role-tilt-x': deg(clamp(-ny * roleTiltMotion.tiltX, -roleTiltMotion.tiltXLimit, roleTiltMotion.tiltXLimit)),
+      '--role-tilt-y': deg(clamp(nx * roleTiltMotion.tiltY, -roleTiltMotion.tiltYLimit, roleTiltMotion.tiltYLimit)),
+      '--role-bg-x': px(nx * roleTiltMotion.bgX),
+      '--role-bg-y': px(ny * roleTiltMotion.bgY),
+      '--role-copy-x': px(nx * roleTiltMotion.copyX),
+      '--role-dialogue-x': px(nx * roleTiltMotion.dialogueX),
+      '--role-dialogue-y': px(ny * roleTiltMotion.dialogueY),
+      '--role-person-x': px(nx * roleTiltMotion.personX),
+      '--role-person-y': px(ny * roleTiltMotion.personY)
+    });
   }
 
   function resetRoleCard(index: number) {
     const card = roleCards[index];
     if (!card) return;
-    card.style.setProperty('--role-tilt-x', '0deg');
-    card.style.setProperty('--role-tilt-y', '0deg');
-    card.style.setProperty('--role-bg-x', '0px');
-    card.style.setProperty('--role-bg-y', '0px');
-    card.style.setProperty('--role-copy-x', '0px');
-    card.style.setProperty('--role-dialogue-x', '0px');
-    card.style.setProperty('--role-dialogue-y', '0px');
-    card.style.setProperty('--role-person-x', '0px');
-    card.style.setProperty('--role-person-y', '0px');
+    setCssVars(card, roleCardResetVars);
   }
 
   function reloadHome(event: MouseEvent) {
@@ -412,12 +576,11 @@
     if (!aboutScreenEl) return;
     aboutTween = gsap.fromTo(
       aboutScreenEl,
-      { clipPath: 'inset(0 0 0 100%)', xPercent: 6 },
+      aboutClosedVars,
       {
-        clipPath: 'inset(0 0 0 0%)',
-        xPercent: 0,
-        duration: 0.52,
-        ease: 'power3.out',
+        ...aboutOpenVars,
+        duration: aboutMotion.openDuration,
+        ease: aboutMotion.openEase,
         clearProps: 'transform'
       }
     );
@@ -430,10 +593,9 @@
     }
     aboutTween?.kill();
     aboutTween = gsap.to(aboutScreenEl, {
-      clipPath: 'inset(0 0 0 100%)',
-      xPercent: 6,
-      duration: 0.42,
-      ease: 'power3.in',
+      ...aboutClosedVars,
+      duration: aboutMotion.closeDuration,
+      ease: aboutMotion.closeEase,
       onComplete: () => {
         isAboutOpen = false;
       }
@@ -453,8 +615,7 @@
     audioFadeTweens[role]?.kill();
     audioFadeTweens[role] = gsap.to(audio, {
       volume: targetVolume,
-      duration: 0.52,
-      ease: 'power2.inOut',
+      ...audioFadeMotion,
       overwrite: true,
       onComplete: () => {
         audio.volume = targetVolume;
@@ -539,11 +700,11 @@
   }
 
   function stopAllRoleAudio() {
-    (Object.keys(roleAudio) as AudioRole[]).forEach(stopRoleAudio);
+    audioRoles.forEach(stopRoleAudio);
   }
 
   function cancelAllAudioFrames() {
-    (Object.keys(roleAudio) as AudioRole[]).forEach((role) => {
+    audioRoles.forEach((role) => {
       audioFadeTweens[role]?.kill();
       audioFadeTweens[role] = undefined;
       cancelAudioFrame(audioLoopFrames, role);
@@ -556,93 +717,90 @@
     const epPage        = ease(pageProgress);
     const brandReveal   = clamp(brandProgress);
     const epBrand       = ease(brandReveal);
-    homeScreen?.style.setProperty('--page-y', `${(-100 * epPage).toFixed(2)}svh`);
+    setCssVars(homeScreen, { '--page-y': `${(-100 * epPage).toFixed(2)}svh` });
 
     // 2. next-screen: appare con pageProgress, sparisce con brandProgress
     //    opacity finale = pageProgress-driven * (1 - brandProgress-driven)
     if (nextScreen) {
       const showNext = epPage;                      // 0→1 mentre scrolla verso next
       const hideNext = epBrand;                     // 0→1 mentre scrolla verso brand
-      nextScreen.style.opacity = (showNext * (1 - hideNext)).toFixed(3);
-      // pointer-events solo quando visibile
-      nextScreen.style.pointerEvents = showNext > 0.05 && hideNext < 0.95 ? 'auto' : 'none';
+      setLayerState(nextScreen, showNext * (1 - hideNext), showNext > 0.05 && hideNext < 0.95);
     }
 
     // 3. brand-screen: appare con brandProgress
     if (brandScreen) {
-      brandScreen.style.opacity = epBrand.toFixed(3);
-      brandScreen.style.pointerEvents = epBrand > 0.05 ? 'auto' : 'none';
+      setLayerState(brandScreen, epBrand, epBrand > 0.05);
     }
 
-    const floatingExit = ease(clamp((brandProgress - 1.08) / 0.64));
+    const floatingExit = ease(clamp((brandProgress - floatingExitMotion.start) / floatingExitMotion.duration));
     floatingEls.forEach((el, index) => {
       if (!el) return;
       const asset = floatingAssets[index];
-      const fadeOut = ease(clamp((floatingExit - 0.72) / 0.28));
+      const fadeOut = ease(clamp((floatingExit - floatingExitMotion.fadeStart) / floatingExitMotion.fadeDuration));
       const scrollX = asset.exitX * floatingExit;
       const scrollY = asset.exitY * floatingExit;
-      el.style.setProperty('--float-scroll-x', `${scrollX.toFixed(2)}vw`);
-      el.style.setProperty('--float-scroll-y', `${scrollY.toFixed(2)}vh`);
-      el.style.setProperty('--float-scale', (1 - floatingExit * 0.08).toFixed(3));
-      el.style.setProperty('--float-opacity', (1 - fadeOut).toFixed(3));
-      el.style.pointerEvents = fadeOut > 0.82 ? 'none' : 'auto';
+      setCssVars(el, {
+        '--float-scroll-x': vw(scrollX),
+        '--float-scroll-y': vh(scrollY, 2),
+        '--float-scale': fixed(1 - floatingExit * floatingExitMotion.scaleLoss),
+        '--float-opacity': fixed(1 - fadeOut)
+      });
+      el.style.pointerEvents = fadeOut > floatingExitMotion.pointerCutoff ? 'none' : 'auto';
     });
 
     const rolesProgress = clamp((brandProgress - rolesRevealStart) / rolesRevealDuration);
     const rolesEase = ease(clamp(rolesProgress / rolesScreenFadeEnd));
     if (rolesScreen) {
-      rolesScreen.style.opacity = rolesEase.toFixed(3);
-      rolesScreen.style.pointerEvents = rolesProgress > 0.08 ? 'auto' : 'none';
+      setLayerState(rolesScreen, rolesEase, rolesProgress > 0.08);
     }
     roleCards.forEach((card, index) => {
       if (!card) return;
       const cardProgress = clamp((rolesProgress - index * roleCardStagger) / roleCardRevealDuration);
       const cardEase = ease(cardProgress);
-      card.style.setProperty('--role-card-y', `${((1 - cardEase) * 38).toFixed(1)}vh`);
-      card.style.setProperty('--role-card-opacity', cardEase.toFixed(3));
+      setCssVars(card, {
+        '--role-card-y': vh((1 - cardEase) * 38),
+        '--role-card-opacity': fixed(cardEase)
+      });
     });
 
     // 4. Lettere intro: dissolvono con pageProgress
-    applyLetterStyles(introLetters, pageProgress, {
-      start: 0.2, end: 0.5, windowSize: 0.08, invert: true, dy: 12
+    applyLetterStyles(introLetters, pageProgress, introLetterOut);
+    const introAudioOut = ease(clamp((pageProgress - introAudioMotion.start) / introAudioMotion.duration));
+    setCssVars(introAudioEl, {
+      '--intro-audio-opacity': fixed(1 - introAudioOut),
+      '--intro-audio-y': px(introAudioOut * introAudioMotion.y)
     });
-    const introAudioOut = ease(clamp((pageProgress - 0.2) / 0.24));
-    introAudioEl?.style.setProperty('--intro-audio-opacity', (1 - introAudioOut).toFixed(3));
-    introAudioEl?.style.setProperty('--intro-audio-y', `${(-introAudioOut * 12).toFixed(1)}px`);
     if (introAudioEl) {
-      introAudioEl.style.pointerEvents = introAudioOut > 0.9 ? 'none' : 'auto';
+      introAudioEl.style.pointerEvents = introAudioOut > introAudioMotion.pointerCutoff ? 'none' : 'auto';
     }
 
     // 5. Lettere next: si rivelano con pageProgress
-    applyLetterStyles(nextLetters, pageProgress, {
-      start: 0.45, end: 0.92, windowSize: 0.07, invert: false, dy: 12
-    });
+    applyLetterStyles(nextLetters, pageProgress, nextLetterIn);
 
     // 6. Lettere brand
     applyBrandLetters();
 
-    const subtitleIn = ease(clamp((brandProgress - 0.7) / 0.22));
-    const subtitleOut = ease(clamp((brandProgress - 2.04) / 0.18));
+    const subtitleIn = ease(clamp((brandProgress - brandSubtitleMotion.inStart) / brandSubtitleMotion.inDuration));
+    const subtitleOut = ease(clamp((brandProgress - brandSubtitleMotion.outStart) / brandSubtitleMotion.outDuration));
     const subtitleOpacity = subtitleIn * (1 - subtitleOut);
-    const subtitleY = (1 - subtitleIn) * 14 - subtitleOut * 16;
-    brandSubtitleEl?.style.setProperty('--brand-subtitle-opacity', subtitleOpacity.toFixed(3));
-    brandSubtitleEl?.style.setProperty('--brand-subtitle-y', `${subtitleY.toFixed(1)}px`);
+    const subtitleY = (1 - subtitleIn) * brandSubtitleMotion.enterY + subtitleOut * brandSubtitleMotion.exitY;
+    setCssVars(brandSubtitleEl, {
+      '--brand-subtitle-opacity': fixed(subtitleOpacity),
+      '--brand-subtitle-y': px(subtitleY)
+    });
   }
 
   onMount(() => {
     const flowState = { value: 0 };
     let targetFlowValue = 0;
-    const maxWheelStep = 0.055;
-    const maxTargetLead = 0.34;
-    const reelScrollSlowdown = 0.5;
-    const reelMaxTargetLead = 0.2;
+    randomizeBrandLetters();
 
-    mountFadeDelay = gsap.delayedCall(0.4, () => {
+    mountFadeDelay = gsap.delayedCall(mountFadeMotion.delay, () => {
       if (!introEl) return;
       mountFadeTween = gsap.to(introEl, {
         '--mount-opacity': 1,
-        duration: 2,
-        ease: 'power2.out'
+        duration: mountFadeMotion.duration,
+        ease: mountFadeMotion.ease
       });
     });
 
@@ -655,12 +813,12 @@
       applyAllStyles();
     };
 
-    const tweenFlowTo = (value: number, duration = 1.18) => {
+    const tweenFlowTo = (value: number, duration = flowMotion.duration) => {
       targetFlowValue = clamp(value, 0, flowTotalMax);
       flowTween = gsap.to(flowState, {
         value: targetFlowValue,
         duration,
-        ease: 'power3.out',
+        ease: flowMotion.ease,
         overwrite: true,
         onUpdate: () => applyFlowTotal(flowState.value)
       });
@@ -668,12 +826,12 @@
 
     const queueFlow = (delta: number) => {
       const isAdvancingThroughReels = delta > 0 && flowState.value < 1;
-      const effectiveDelta = isAdvancingThroughReels ? delta * reelScrollSlowdown : delta;
-      const targetLead = isAdvancingThroughReels ? reelMaxTargetLead : maxTargetLead;
+      const effectiveDelta = isAdvancingThroughReels ? delta * flowMotion.reelScrollSlowdown : delta;
+      const targetLead = isAdvancingThroughReels ? flowMotion.reelMaxTargetLead : flowMotion.maxTargetLead;
       const unclampedTarget = targetFlowValue + effectiveDelta;
       const minTarget = flowState.value - targetLead;
       const maxTarget = flowState.value + targetLead;
-      tweenFlowTo(clamp(unclampedTarget, minTarget, maxTarget), isAdvancingThroughReels ? 1.18 : 1.18);
+      tweenFlowTo(clamp(unclampedTarget, minTarget, maxTarget));
     };
 
     const normalizeWheelDelta = (e: WheelEvent) => {
@@ -683,17 +841,14 @@
           ? window.innerHeight
           : 1;
       const rawStep = (e.deltaY * unit) / 2400;
-      return clamp(rawStep, -maxWheelStep, maxWheelStep);
+      return clamp(rawStep, -flowMotion.maxWheelStep, flowMotion.maxWheelStep);
     };
 
     const onWheel   = (e: WheelEvent)    => { e.preventDefault(); queueFlow(normalizeWheelDelta(e)); };
     const onKeydown = (e: KeyboardEvent) => {
       unlockAmbientAudio();
-      const map: Record<string, number> = {
-        ArrowDown: 0.065, PageDown: 0.065, ' ': 0.065,
-        ArrowUp: -0.065,  PageUp:  -0.065
-      };
-      if (e.key in map) { e.preventDefault(); queueFlow(map[e.key]); }
+      const step = keyFlowSteps[e.key];
+      if (step !== undefined) { e.preventDefault(); queueFlow(step); }
     };
 
     applyReelStyles();
@@ -748,7 +903,7 @@
         bind:this={introAudioEl}
         class="icon-button intro-audio"
         type="button"
-        aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+        aria-label={audioLabel}
         aria-pressed={isAudioMuted}
         onclick={toggleAudioMuted}
       >
@@ -827,7 +982,7 @@
     <button
       class="icon-button top-bar-audio"
       type="button"
-      aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+      aria-label={audioLabel}
       aria-pressed={isAudioMuted}
       onclick={toggleAudioMuted}
     >
@@ -883,7 +1038,7 @@
   </div>
 </section>
 
-{#each Object.entries(roleAudio) as [role, config] (role)}
+{#each roleAudioEntries as { role, config } (role)}
   <audio
     bind:this={config.el}
     src={config.src}
@@ -904,7 +1059,7 @@
       <button
         class="icon-button top-bar-audio about-audio"
         type="button"
-        aria-label={isAudioMuted ? 'Audio disattivato' : 'Audio attivo'}
+        aria-label={audioLabel}
         aria-pressed={isAudioMuted}
         onclick={toggleAudioMuted}
       >
@@ -1363,11 +1518,15 @@
   }
 
   .role-card {
+    --role-card-radius: clamp(42px, 4.55vw, 65px);
+    --role-inner-border-inset: 10px;
+    --role-inner-border-width: 2px;
+
     position: relative;
     overflow: hidden;
     min-height: 0;
     border: var(--card-border-width) solid var(--color-border-primary);
-    border-radius: clamp(42px, 4.55vw, 65px);
+    border-radius: var(--role-card-radius);
     background: var(--color-surface-page);
     cursor: pointer;
     opacity: var(--role-card-opacity, 0);
@@ -1385,6 +1544,17 @@
       transform 180ms ease-out,
       box-shadow 180ms ease;
     will-change: opacity, transform;
+  }
+
+  .role-card::before {
+    position: absolute;
+    z-index: 12;
+    inset: var(--role-inner-border-inset);
+    border: var(--role-inner-border-width) solid var(--color-border-primary);
+    border-radius: calc(var(--role-card-radius) - var(--role-inner-border-inset));
+    content: '';
+    pointer-events: none;
+    transform: translateZ(96px);
   }
 
   .role-card:hover,
@@ -1588,7 +1758,13 @@
       justify-content: stretch;
       transform: none;
     }
-    .role-card { min-height: 260px; border-radius: clamp(34px, 12vw, 54px); }
+    .role-card {
+      --role-card-radius: clamp(34px, 12vw, 54px);
+      --role-inner-border-inset: 8px;
+
+      min-height: 260px;
+      border-radius: var(--role-card-radius);
+    }
     .role-card-copy { left: var(--spacing-4); right: var(--spacing-4); }
     .role-card-copy h2 { font-size: clamp(34px, 12vw, 52px); }
     .role-card-copy p { margin-top: -6px; font-size: 12px; }
