@@ -27,6 +27,9 @@
   let flowTween: gsap.core.Tween | undefined;
   const audioFadeTweens: Partial<Record<AudioRole, gsap.core.Tween>> = {};
   const audioLoopFrames: Partial<Record<AudioRole, number>> = {};
+  const roleAudioSources: Partial<Record<AudioRole, MediaElementAudioSourceNode>> = {};
+  const roleAudioGains: Partial<Record<AudioRole, GainNode>> = {};
+  let roleAudioContext: AudioContext | undefined;
   let audioUnlocked = false;
 
   const audioRoles = ['ufficio', 'cucina', 'servizio'] as const;
@@ -42,25 +45,38 @@
 
   const roleAudio: Record<
     AudioRole,
-    { src: string; startTime: number; maxTime: number; targetVolume: number; el?: HTMLAudioElement }
+    {
+      src: string;
+      startTime: number;
+      maxTime: number;
+      targetVolume: number;
+      outputGain?: number;
+      fadeIn?: boolean;
+      fadeInDuration?: number;
+      el?: HTMLAudioElement;
+    }
   > = {
     ufficio: {
       src: '/sound/office.mp3',
-      startTime: 10,
-      maxTime: 20,
-      targetVolume: 0.95
+      startTime: 0.5,
+      maxTime: 0,
+      targetVolume: 0.42,
+      fadeInDuration: 0.05
     },
     cucina: {
       src: '/sound/kitchen.mp3',
       startTime: 0,
-      maxTime: 10,
-      targetVolume: 0.42
+      maxTime: 0,
+      targetVolume: 0.22,
+      fadeInDuration: 0.12
     },
     servizio: {
       src: '/sound/restaurant.mp3',
       startTime: 0,
-      maxTime: 9.7,
-      targetVolume: 0.5
+      maxTime: 0,
+      targetVolume: 1,
+      outputGain: 4,
+      fadeIn: false
     }
   };
   const roleAudioEntries = audioRoles.map((role) => ({ role, config: roleAudio[role] }));
@@ -608,7 +624,7 @@
     store[role] = 0;
   }
 
-  function fadeAudio(role: AudioRole, targetVolume: number, afterFade?: () => void) {
+  function fadeAudio(role: AudioRole, targetVolume: number, afterFade?: () => void, duration = audioFadeMotion.duration) {
     const config = roleAudio[role];
     const audio = config.el;
     if (!audio) return;
@@ -616,6 +632,7 @@
     audioFadeTweens[role] = gsap.to(audio, {
       volume: targetVolume,
       ...audioFadeMotion,
+      duration,
       overwrite: true,
       onComplete: () => {
         audio.volume = targetVolume;
@@ -625,14 +642,19 @@
     });
   }
 
-  function keepAudioLooping(role: AudioRole) {
+  function setupRoleAudioOutput(role: AudioRole) {
     const config = roleAudio[role];
     const audio = config.el;
-    if (!audio) return;
-    if (audio.currentTime >= config.maxTime) {
-      audio.currentTime = config.startTime;
-    }
-    audioLoopFrames[role] = requestAnimationFrame(() => keepAudioLooping(role));
+    if (!audio || roleAudioSources[role]) return;
+
+    roleAudioContext ??= new AudioContext();
+    const source = roleAudioContext.createMediaElementSource(audio);
+    const gain = roleAudioContext.createGain();
+    gain.gain.value = config.outputGain ?? 1;
+    source.connect(gain);
+    gain.connect(roleAudioContext.destination);
+    roleAudioSources[role] = source;
+    roleAudioGains[role] = gain;
   }
 
   async function startRoleAudio(role: AudioRole) {
@@ -644,15 +666,15 @@
     audioFadeTweens[role] = undefined;
     cancelAudioFrame(audioLoopFrames, role);
     audio.loop = false;
-    if (audio.volume === 0 || audio.paused) audio.volume = 0;
-    if (audio.paused) {
-      audio.currentTime = config.startTime;
-    }
+    audio.pause();
+    audio.currentTime = config.startTime;
+    setupRoleAudioOutput(role);
+    await roleAudioContext?.resume();
+    audio.volume = config.fadeIn === false ? config.targetVolume : 0;
 
     try {
       await audio.play();
-      audioLoopFrames[role] = requestAnimationFrame(() => keepAudioLooping(role));
-      fadeAudio(role, config.targetVolume);
+      if (config.fadeIn !== false) fadeAudio(role, config.targetVolume, undefined, config.fadeInDuration);
     } catch {
       // Browsers may block hover audio before the first user gesture.
     }
@@ -683,6 +705,8 @@
     if (!audios.length) return;
 
     try {
+      audioRoles.forEach(setupRoleAudioOutput);
+      await roleAudioContext?.resume();
       await Promise.all(
         audios.map(async (audio) => {
           const previousVolume = audio.volume;
@@ -1579,13 +1603,13 @@
 
   .role-card-bg {
     position: absolute;
-    top: 29%; left: 50%;
-    width: 108%; height: 72%;
+    inset: 0;
+    width: 100%; height: 100%;
     object-fit: cover;
-    opacity: 0;
+    opacity: 0.4;
     filter: grayscale(1) opacity(0.38);
     transform:
-      translateX(calc(-50% + var(--role-bg-x, 0px)))
+      translateX(var(--role-bg-x, 0px))
       translateY(var(--role-bg-y, 0px))
       translateZ(-24px)
       scale(1.04);
@@ -1719,8 +1743,9 @@
   .role-card.has-dialogue:hover .role-card-bg,
   .role-card.has-dialogue:focus-visible .role-card-bg {
     opacity: 1;
+    filter: grayscale(1) opacity(0.42);
     transform:
-      translateX(calc(-50% + var(--role-bg-x, 0px)))
+      translateX(var(--role-bg-x, 0px))
       translateY(var(--role-bg-y, 0px))
       translateZ(-24px)
       scale(1.08);
@@ -1802,9 +1827,9 @@
     .role-card-copy h2 { font-size: clamp(34px, 12vw, 52px); }
     .role-card-copy p { margin-top: -6px; font-size: 12px; }
     .role-card-bg {
-      top: 36%;
-      width: 116%;
-      height: 64%;
+      inset: 0;
+      width: 100%;
+      height: 100%;
     }
     .role-hover-panel {
       top: 0;
