@@ -273,7 +273,7 @@
       speaker: 'Carlo Zarri',
       dialogue: "il mio ruolo ... seguimi nell'ufficio per saperne di più",
       hoverText: "io sono carlo zarri seguimi nell'ufficio",
-      personSrc: '/images/carlo-zarri.png'
+      personSrc: '/images/carlo-zarri-figma.png'
     },
     {
       title: 'cucina',
@@ -1606,11 +1606,11 @@
     border-radius: calc(clamp(42px, 4.55vw, 65px) + 1px) calc(clamp(42px, 4.55vw, 65px) + 1px) 0 0;
     background: var(--color-text-primary);
     color: var(--color-text-inverse);
-    opacity: 0;
+    opacity: 1;
     transform:
-      translateY(-18px)
+      translateY(calc(-100% - 36px))
       translateZ(54px);
-    transition: opacity 220ms ease, transform 300ms ease;
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
   }
 
@@ -1691,7 +1691,7 @@
   }
 
   .role-card.is-ufficio .role-person {
-    height: var(--ufficio-person-height, min(92%, 718px));
+    height: var(--ufficio-person-height, min(60%, 720px));
   }
 
   .role-card.has-dialogue:hover .role-card-bg,
