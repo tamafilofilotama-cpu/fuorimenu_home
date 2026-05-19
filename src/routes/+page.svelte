@@ -1,6 +1,6 @@
 <script lang="ts">
   import { gsap } from 'gsap';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   let reelProgress = 0;
   let pageProgress = 0;
@@ -19,12 +19,12 @@
   let isAudioMuted = $state(false);
   let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
-  let isAboutClosing = $state(false);
-  let aboutCloseTimer: ReturnType<typeof setTimeout> | undefined;
-  let mountFadeTimer: ReturnType<typeof setTimeout> | undefined;
-  let mountFadeFrame = 0;
+  let aboutScreenEl = $state<HTMLElement>();
+  let aboutTween: gsap.core.Tween | undefined;
+  let mountFadeTween: gsap.core.Tween | undefined;
+  let mountFadeDelay: gsap.core.Tween | undefined;
   let flowTween: gsap.core.Tween | undefined;
-  let audioFadeFrames: Partial<Record<AudioRole, number>> = {};
+  let audioFadeTweens: Partial<Record<AudioRole, gsap.core.Tween>> = {};
   let audioLoopFrames: Partial<Record<AudioRole, number>> = {};
   let audioUnlocked = false;
 
@@ -120,8 +120,6 @@
   }));
   brandBurstOrder.forEach((letterIndex, rank) => { brandBurstRank[letterIndex] = rank; });
   let brandLetterEls: HTMLElement[] = [];
-  let floatingFrame = 0;
-  let floatingLast = 0;
   let floatingEls: HTMLElement[] = [];
   const rolesRevealStart = 2;
   const rolesRevealDuration = 0.58;
@@ -294,14 +292,10 @@
     });
   }
 
-  function moveFloatingAssets(time: number) {
-    if (!brandScreen) {
-      floatingFrame = requestAnimationFrame(moveFloatingAssets);
-      return;
-    }
+  function moveFloatingAssets(time: number, deltaTime: number) {
+    if (!brandScreen) return;
 
-    const dt = Math.min((time - (floatingLast || time)) / 1000, 0.032);
-    floatingLast = time;
+    const dt = Math.min(deltaTime / 1000, 0.032);
 
     const bounds = brandScreen.getBoundingClientRect();
     const pad    = Math.max(16, Math.min(bounds.width, bounds.height) * 0.035);
@@ -317,7 +311,7 @@
       const maxY   = Math.max(pad, bounds.height - height - pad);
       const wobble = asset.wobble;
       const spin = asset.spin;
-      const driftTime = time / 1000 * wobble.speed + wobble.phase;
+      const driftTime = time * wobble.speed + wobble.phase;
       const hoverTarget = motion.hover ? 1 : 0;
       const hoverStep = dt / (motion.hover ? 0.2 : 0.28);
       motion.hoverProgress = clamp(
@@ -358,7 +352,6 @@
       el.style.setProperty('--float-shadow-alpha', (hoverEase * 0.28).toFixed(3));
     });
 
-    floatingFrame = requestAnimationFrame(moveFloatingAssets);
   }
 
   function tiltFloatingAsset(e: PointerEvent, index: number) {
@@ -412,19 +405,39 @@
     }
   }
 
-  function openAbout() {
-    if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
-    isAboutClosing = false;
+  async function openAbout() {
+    aboutTween?.kill();
     isAboutOpen = true;
+    await tick();
+    if (!aboutScreenEl) return;
+    aboutTween = gsap.fromTo(
+      aboutScreenEl,
+      { clipPath: 'inset(0 0 0 100%)', xPercent: 6 },
+      {
+        clipPath: 'inset(0 0 0 0%)',
+        xPercent: 0,
+        duration: 0.52,
+        ease: 'power3.out',
+        clearProps: 'transform'
+      }
+    );
   }
 
   function closeAbout() {
-    isAboutClosing = true;
-    if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
-    aboutCloseTimer = setTimeout(() => {
+    if (!aboutScreenEl) {
       isAboutOpen = false;
-      isAboutClosing = false;
-    }, 420);
+      return;
+    }
+    aboutTween?.kill();
+    aboutTween = gsap.to(aboutScreenEl, {
+      clipPath: 'inset(0 0 0 100%)',
+      xPercent: 6,
+      duration: 0.42,
+      ease: 'power3.in',
+      onComplete: () => {
+        isAboutOpen = false;
+      }
+    });
   }
 
   function cancelAudioFrame(store: Partial<Record<AudioRole, number>>, role: AudioRole) {
@@ -437,27 +450,18 @@
     const config = roleAudio[role];
     const audio = config.el;
     if (!audio) return;
-    cancelAudioFrame(audioFadeFrames, role);
-
-    const startVolume = audio.volume;
-    const startTime = performance.now();
-    const duration = 520;
-
-    const tick = (now: number) => {
-      const progress = clamp((now - startTime) / duration);
-      const eased = ease(progress);
-      audio.volume = startVolume + (targetVolume - startVolume) * eased;
-
-      if (progress < 1) {
-        audioFadeFrames[role] = requestAnimationFrame(tick);
-      } else {
+    audioFadeTweens[role]?.kill();
+    audioFadeTweens[role] = gsap.to(audio, {
+      volume: targetVolume,
+      duration: 0.52,
+      ease: 'power2.inOut',
+      overwrite: true,
+      onComplete: () => {
         audio.volume = targetVolume;
-        audioFadeFrames[role] = 0;
+        audioFadeTweens[role] = undefined;
         afterFade?.();
       }
-    };
-
-    audioFadeFrames[role] = requestAnimationFrame(tick);
+    });
   }
 
   function keepAudioLooping(role: AudioRole) {
@@ -475,7 +479,8 @@
     const audio = config.el;
     if (!audio || isAudioMuted) return;
 
-    cancelAudioFrame(audioFadeFrames, role);
+    audioFadeTweens[role]?.kill();
+    audioFadeTweens[role] = undefined;
     cancelAudioFrame(audioLoopFrames, role);
     audio.loop = false;
     if (audio.volume === 0 || audio.paused) audio.volume = 0;
@@ -539,7 +544,8 @@
 
   function cancelAllAudioFrames() {
     (Object.keys(roleAudio) as AudioRole[]).forEach((role) => {
-      cancelAudioFrame(audioFadeFrames, role);
+      audioFadeTweens[role]?.kill();
+      audioFadeTweens[role] = undefined;
       cancelAudioFrame(audioLoopFrames, role);
     });
   }
@@ -628,23 +634,17 @@
     let targetFlowValue = 0;
     const maxWheelStep = 0.055;
     const maxTargetLead = 0.34;
-    const reelScrollSlowdown = 0.42;
-    const reelMaxTargetLead = 0.16;
+    const reelScrollSlowdown = 0.5;
+    const reelMaxTargetLead = 0.2;
 
-    mountFadeTimer = setTimeout(() => {
-      const mountStart    = performance.now();
-      const mountDuration = 2000;
-      const tickMount = (now: number) => {
-        const o = ease(Math.min((now - mountStart) / mountDuration, 1));
-        introEl?.style.setProperty('--mount-opacity', o.toFixed(3));
-        if (o < 1) {
-          mountFadeFrame = requestAnimationFrame(tickMount);
-        } else {
-          mountFadeFrame = 0;
-        }
-      };
-      mountFadeFrame = requestAnimationFrame(tickMount);
-    }, 400);
+    mountFadeDelay = gsap.delayedCall(0.4, () => {
+      if (!introEl) return;
+      mountFadeTween = gsap.to(introEl, {
+        '--mount-opacity': 1,
+        duration: 2,
+        ease: 'power2.out'
+      });
+    });
 
     const applyFlowTotal = (value: number) => {
       const flowValue = clamp(value, 0, flowTotalMax);
@@ -673,7 +673,7 @@
       const unclampedTarget = targetFlowValue + effectiveDelta;
       const minTarget = flowState.value - targetLead;
       const maxTarget = flowState.value + targetLead;
-      tweenFlowTo(clamp(unclampedTarget, minTarget, maxTarget), isAdvancingThroughReels ? 1.32 : 1.18);
+      tweenFlowTo(clamp(unclampedTarget, minTarget, maxTarget), isAdvancingThroughReels ? 1.18 : 1.18);
     };
 
     const normalizeWheelDelta = (e: WheelEvent) => {
@@ -698,16 +698,16 @@
 
     applyReelStyles();
     applyAllStyles();
-    floatingFrame = requestAnimationFrame(moveFloatingAssets);
+    gsap.ticker.add(moveFloatingAssets);
     window.addEventListener('wheel',   onWheel,   { passive: false });
     window.addEventListener('keydown', onKeydown);
     window.addEventListener('pointerdown', unlockAmbientAudio, { passive: true });
     return () => {
-      cancelAnimationFrame(floatingFrame);
+      gsap.ticker.remove(moveFloatingAssets);
       flowTween?.kill();
-      if (mountFadeTimer) clearTimeout(mountFadeTimer);
-      if (aboutCloseTimer) clearTimeout(aboutCloseTimer);
-      cancelAnimationFrame(mountFadeFrame);
+      mountFadeDelay?.kill();
+      mountFadeTween?.kill();
+      aboutTween?.kill();
       cancelAllAudioFrames();
       window.removeEventListener('wheel',   onWheel);
       window.removeEventListener('keydown', onKeydown);
@@ -871,7 +871,6 @@
         <div class="role-hover-panel">
           <p>{item.hoverText}</p>
         </div>
-        <div class="role-hover-notch" aria-hidden="true"></div>
         <div class="role-card-copy">
           <h2>{item.title}</h2>
           <p>{item.description}</p>
@@ -895,8 +894,8 @@
 
 {#if isAboutOpen}
   <section
+    bind:this={aboutScreenEl}
     class="about-screen"
-    class:is-closing={isAboutClosing}
     aria-labelledby="about-title"
     data-node-id="256:1827"
   >
@@ -1046,13 +1045,8 @@
     overflow: hidden;
     background: var(--color-text-primary);
     color: var(--color-surface-page);
-    animation: about-curtain-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
     transform-origin: right center;
     will-change: clip-path, transform;
-  }
-
-  .about-screen.is-closing {
-    animation: about-curtain-out 420ms cubic-bezier(0.64, 0, 0.78, 0) both;
   }
 
   .about-top-bar {
@@ -1131,28 +1125,6 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
     border: 0;
-  }
-
-  @keyframes about-curtain-in {
-    from {
-      clip-path: inset(0 0 0 100%);
-      transform: translateX(6%);
-    }
-    to {
-      clip-path: inset(0 0 0 0);
-      transform: translateX(0);
-    }
-  }
-
-  @keyframes about-curtain-out {
-    from {
-      clip-path: inset(0 0 0 0);
-      transform: translateX(0);
-    }
-    to {
-      clip-path: inset(0 0 0 100%);
-      transform: translateX(6%);
-    }
   }
 
   .intro {
@@ -1424,8 +1396,8 @@
 
   .role-card-bg {
     position: absolute;
-    top: 24%; left: 50%;
-    width: 104%; height: 78%;
+    top: 29%; left: 50%;
+    width: 108%; height: 72%;
     object-fit: cover;
     opacity: 0;
     filter: grayscale(1) opacity(0.38);
@@ -1440,50 +1412,47 @@
   }
 
   .role-hover-panel {
-    position: absolute; z-index: 3;
-    top: 0; left: 0; right: 0;
-    height: clamp(148px, 12.8vw, 195px);
+    position: absolute; z-index: 8;
+    top: calc(-1 * var(--card-border-width) - 1px);
+    left: calc(-1 * var(--card-border-width) - 1px);
+    right: calc(-1 * var(--card-border-width) - 1px);
+    width: auto;
+    height: auto;
+    min-height: 128px;
     display: grid;
     place-items: center;
-    padding: var(--spacing-6) var(--spacing-7);
-    border-radius: clamp(38px, 4.35vw, 61px) clamp(38px, 4.35vw, 61px) 0 0;
+    padding: var(--spacing-5) var(--spacing-6);
+    border-radius: calc(clamp(42px, 4.55vw, 65px) + 1px) calc(clamp(42px, 4.55vw, 65px) + 1px) 0 0;
     background: var(--color-text-primary);
     color: var(--color-text-inverse);
     opacity: 0;
     transform:
       translateY(-18px)
-      translateX(var(--role-copy-x, 0px))
       translateZ(54px);
     transition: opacity 220ms ease, transform 300ms ease;
     pointer-events: none;
   }
 
+  .role-hover-panel::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: calc(clamp(46px, 4.5vw, 64px) / -2);
+    width: clamp(46px, 4.5vw, 64px);
+    aspect-ratio: 1;
+    background: var(--color-text-primary);
+    transform: translateX(-50%) rotate(45deg);
+  }
+
   .role-hover-panel p {
-    width: min(100%, 507px);
+    width: min(100%, 390px);
     margin: 0;
     font-family: var(--font-text);
-    font-size: clamp(20px, 2.18vw, 32px);
+    font-size: 24px;
     font-weight: 600;
     line-height: 1.5;
     letter-spacing: 0;
     text-align: center;
-  }
-
-  .role-hover-notch {
-    position: absolute; z-index: 2;
-    top: clamp(118px, 10.7vw, 168px);
-    left: 50%;
-    width: clamp(46px, 4.5vw, 64px);
-    aspect-ratio: 1;
-    background: var(--color-text-primary);
-    opacity: 0;
-    transform:
-      translateX(-50%)
-      translateY(-16px)
-      translateZ(44px)
-      rotate(45deg);
-    transition: opacity 220ms ease, transform 300ms ease;
-    pointer-events: none;
   }
 
   .role-card-copy {
@@ -1507,7 +1476,7 @@
   }
 
   .role-card-copy p {
-    margin: -22px 0 0;
+    margin: -6px 0 0;
     font-family: var(--font-text);
     font-size: clamp(13px, 1.1vw, 16px);
     font-weight: 500;
@@ -1518,13 +1487,13 @@
 
   .role-person {
     position: absolute; z-index: 4;
-    left: 50%; bottom: -2px;
+    left: 50%; bottom: -188px;
     width: auto;
-    height: min(68%, 520px);
+    height: min(92%, 720px);
     opacity: 0;
     transform:
       translateX(calc(-50% + var(--role-person-x, 0px)))
-      translateY(calc(44px + var(--role-person-y, 0px)))
+      translateY(calc(72px + var(--role-person-y, 0px)))
       translateZ(72px);
     transition: opacity 280ms ease, transform 360ms ease;
     user-select: none;
@@ -1533,15 +1502,15 @@
   }
 
   .role-card.is-servizio .role-person {
-    height: var(--servizio-person-height, min(69%, 526px));
+    height: var(--servizio-person-height, min(93%, 730px));
   }
 
   .role-card.is-cucina .role-person {
-    height: var(--cucina-person-height, min(68%, 520px));
+    height: var(--cucina-person-height, min(92%, 720px));
   }
 
   .role-card.is-ufficio .role-person {
-    height: var(--ufficio-person-height, min(68%, 518px));
+    height: var(--ufficio-person-height, min(92%, 718px));
   }
 
   .role-card.has-dialogue:hover .role-card-bg,
@@ -1564,23 +1533,11 @@
   }
 
   .role-card.has-dialogue:hover .role-hover-panel,
-  .role-card.has-dialogue:focus-visible .role-hover-panel,
-  .role-card.has-dialogue:hover .role-hover-notch,
-  .role-card.has-dialogue:focus-visible .role-hover-notch {
+  .role-card.has-dialogue:focus-visible .role-hover-panel {
     opacity: 1;
     transform:
-      translateX(var(--role-copy-x, 0px))
       translateY(0)
       translateZ(58px);
-  }
-
-  .role-card.has-dialogue:hover .role-hover-notch,
-  .role-card.has-dialogue:focus-visible .role-hover-notch {
-    transform:
-      translateX(calc(-50% + var(--role-dialogue-x, 0px)))
-      translateY(var(--role-dialogue-y, 0px))
-      translateZ(52px)
-      rotate(45deg);
   }
 
   .role-card.has-dialogue:hover .role-person,
@@ -1634,30 +1591,35 @@
     .role-card { min-height: 260px; border-radius: clamp(34px, 12vw, 54px); }
     .role-card-copy { left: var(--spacing-4); right: var(--spacing-4); }
     .role-card-copy h2 { font-size: clamp(34px, 12vw, 52px); }
-    .role-card-copy p { margin-top: -16px; font-size: 12px; }
+    .role-card-copy p { margin-top: -6px; font-size: 12px; }
     .role-card-bg {
-      top: 28%;
+      top: 36%;
       width: 116%;
-      height: 72%;
+      height: 64%;
     }
     .role-hover-panel {
-      height: 96px;
+      top: calc(-1 * var(--card-border-width) - 1px);
+      left: calc(-1 * var(--card-border-width) - 1px);
+      right: calc(-1 * var(--card-border-width) - 1px);
+      width: auto;
+      height: auto;
+      min-height: 82px;
       padding: var(--spacing-4);
-      border-radius: clamp(30px, 11vw, 50px) clamp(30px, 11vw, 50px) 0 0;
+      border-radius: calc(clamp(34px, 12vw, 54px) + 1px) calc(clamp(34px, 12vw, 54px) + 1px) 0 0;
     }
-    .role-hover-panel p { font-size: clamp(15px, 5.2vw, 22px); }
-    .role-hover-notch {
-      top: 74px;
-      width: 38px;
+    .role-hover-panel p { font-size: clamp(16px, 5.2vw, 20px); }
+    .role-hover-panel::after {
+      bottom: -16px;
+      width: 32px;
     }
     .role-person {
-      height: min(70%, 300px);
-      bottom: -2px;
+      height: min(98%, 400px);
+      bottom: -158px;
     }
     .role-card.is-servizio .role-person,
     .role-card.is-cucina .role-person,
     .role-card.is-ufficio .role-person {
-      height: min(70%, 300px);
+      height: min(98%, 400px);
     }
   }
 </style>
