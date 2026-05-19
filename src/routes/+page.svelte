@@ -245,7 +245,7 @@
     copyX: 2.7,
     dialogueX: 3.2,
     dialogueY: 1.7,
-    personX: 6.3,
+    personX: 0,
     personY: 2.8
   };
   const floatingExitMotion = {
@@ -289,7 +289,7 @@
       speaker: 'Ken Frank',
       dialogue: 'il mio ruolo ... seguimi nella mensa per saperne di più',
       hoverText: 'io sono ken frank seguimi in sala',
-      personSrc: '/images/ken-frank.png'
+      personSrc: '/images/k.png'
     }
   ];
 
@@ -1521,6 +1521,8 @@
     --role-card-radius: clamp(42px, 4.55vw, 65px);
     --role-inner-border-inset: 10px;
     --role-inner-border-width: 2px;
+    --role-reveal-duration: 300ms;
+    --role-reveal-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
     position: relative;
     overflow: hidden;
@@ -1594,23 +1596,23 @@
 
   .role-hover-panel {
     position: absolute; z-index: 8;
-    top: calc(-1 * var(--card-border-width) - 1px);
-    left: calc(-1 * var(--card-border-width) - 1px);
-    right: calc(-1 * var(--card-border-width) - 1px);
+    top: 0;
+    left: 0;
+    right: 0;
     width: auto;
     height: auto;
     min-height: 128px;
     display: grid;
     place-items: center;
     padding: var(--spacing-5) var(--spacing-6);
-    border-radius: calc(clamp(42px, 4.55vw, 65px) + 1px) calc(clamp(42px, 4.55vw, 65px) + 1px) 0 0;
+    border-radius: var(--role-card-radius) var(--role-card-radius) 0 0;
     background: var(--color-text-primary);
     color: var(--color-text-inverse);
     opacity: 1;
     transform:
       translateY(calc(-100% - 36px))
       translateZ(54px);
-    transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform var(--role-reveal-duration) var(--role-reveal-ease);
     pointer-events: none;
   }
 
@@ -1673,25 +1675,45 @@
     height: min(92%, 720px);
     opacity: 0;
     transform:
-      translateX(calc(-50% + var(--role-person-x, 0px)))
-      translateY(calc(72px + var(--role-person-y, 0px)))
+      translateX(calc(-50% + var(--role-person-base-x, 0px) + var(--role-person-x, 0px)))
+      translateY(calc(72px + var(--role-person-base-y, 0px) + var(--role-person-y, 0px)))
       translateZ(72px);
-    transition: opacity 280ms ease, transform 360ms ease;
+    transition:
+      opacity var(--role-reveal-duration) var(--role-reveal-ease),
+      transform var(--role-reveal-duration) var(--role-reveal-ease);
     user-select: none;
     pointer-events: none;
     will-change: transform, opacity;
   }
 
+  .role-card.is-servizio {
+    --role-person-base-x: 0px;
+    --role-person-base-y: 295px;
+    --role-person-height: min(120%, 1220px);
+  }
+
+  .role-card.is-cucina {
+    --role-person-base-x: 0px;
+    --role-person-base-y: 0px;
+    --role-person-height: min(60%, 720px);
+  }
+
+  .role-card.is-ufficio {
+    --role-person-base-x: 0px;
+    --role-person-base-y: 188px;
+    --role-person-height: min(95%, 920px);
+  }
+
   .role-card.is-servizio .role-person {
-    height: var(--servizio-person-height, min(93%, 730px));
+    height: var(--servizio-person-height, var(--role-person-height));
   }
 
   .role-card.is-cucina .role-person {
-    height: var(--cucina-person-height, min(60%, 720px));
+    height: var(--cucina-person-height, var(--role-person-height));
   }
 
   .role-card.is-ufficio .role-person {
-    height: var(--ufficio-person-height, min(60%, 720px));
+    height: var(--ufficio-person-height, var(--role-person-height));
   }
 
   .role-card.has-dialogue:hover .role-card-bg,
@@ -1725,8 +1747,8 @@
   .role-card.has-dialogue:focus-visible .role-person {
     opacity: 1;
     transform:
-      translateX(calc(-50% + var(--role-person-x, 0px)))
-      translateY(var(--role-person-y, 0px))
+      translateX(calc(-50% + var(--role-person-base-x, 0px) + var(--role-person-x, 0px)))
+      translateY(calc(var(--role-person-base-y, 0px) + var(--role-person-y, 0px)))
       translateZ(72px);
   }
 
@@ -1785,14 +1807,14 @@
       height: 64%;
     }
     .role-hover-panel {
-      top: calc(-1 * var(--card-border-width) - 1px);
-      left: calc(-1 * var(--card-border-width) - 1px);
-      right: calc(-1 * var(--card-border-width) - 1px);
+      top: 0;
+      left: 0;
+      right: 0;
       width: auto;
       height: auto;
       min-height: 82px;
       padding: var(--spacing-4);
-      border-radius: calc(clamp(34px, 12vw, 54px) + 1px) calc(clamp(34px, 12vw, 54px) + 1px) 0 0;
+      border-radius: var(--role-card-radius) var(--role-card-radius) 0 0;
     }
     .role-hover-panel p { font-size: clamp(16px, 5.2vw, 20px); }
     .role-hover-panel::after {
@@ -1806,7 +1828,7 @@
     .role-card.is-servizio .role-person,
     .role-card.is-cucina .role-person,
     .role-card.is-ufficio .role-person {
-      height: min(98%, 400px);
+      height: var(--role-person-mobile-height, min(98%, 400px));
     }
   }
 </style>
