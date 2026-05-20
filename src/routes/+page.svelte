@@ -16,6 +16,10 @@
   let nextLetters: HTMLElement[] = [];
   let introEl: HTMLElement;
   let introAudioEl: HTMLElement;
+  let audioGateButtonEl = $state<HTMLElement>();
+  let isAudioGateVisible = $state(true);
+  let isAudioGateOpening = $state(false);
+  let introRevealTween: gsap.core.Tween | undefined;
   let isAudioMuted = $state(false);
   let audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
   let isBrandWordSharp = $state(false);
@@ -146,10 +150,16 @@
 
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina olimpica...';
   const nextMessage     = 'Incontra le persone che hanno reso tutto questo possibile.';
+  const audioGateMessage = "Attiva l'audio per un'esperienza più immersiva";
   const brandWord       = 'FuoriMenù';
   const brandSubtitle   = 'Dentro le cucine di Milano Cortina 2026';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
+  const audioGateCharacters = audioGateMessage.split('').map((letter, index) => ({
+    letter,
+    index,
+    isSpace: letter === ' '
+  }));
   const introWords      = groupWords(introCharacters);
 
   const brandLetters = brandWord.split('').map((letter, i) => ({ letter, i }));
@@ -576,6 +586,37 @@
     setCssVars(card, roleCardResetVars);
   }
 
+  function tiltAudioGateButton(e: PointerEvent) {
+    if (!audioGateButtonEl) return;
+    const { nx, ny } = getPointerOffset(e, audioGateButtonEl);
+    setCssVars(audioGateButtonEl, {
+      '--gate-tilt-x': deg(clamp(-ny * roleTiltMotion.tiltX, -roleTiltMotion.tiltXLimit, roleTiltMotion.tiltXLimit)),
+      '--gate-tilt-y': deg(clamp(nx * roleTiltMotion.tiltY, -roleTiltMotion.tiltYLimit, roleTiltMotion.tiltYLimit))
+    });
+  }
+
+  function resetAudioGateButton() {
+    setCssVars(audioGateButtonEl, {
+      '--gate-tilt-x': '0deg',
+      '--gate-tilt-y': '0deg'
+    });
+  }
+
+  function revealIntroLetters() {
+    introRevealTween?.kill();
+    gsap.set(introLetters, {
+      '--intro-letter-reveal': 0,
+      '--intro-reveal-y': '12px'
+    });
+    introRevealTween = gsap.to(introLetters, {
+      '--intro-letter-reveal': 1,
+      '--intro-reveal-y': '0px',
+      duration: 0.64,
+      ease: 'power3.out',
+      stagger: 0.028
+    });
+  }
+
   function reloadHome(event: MouseEvent) {
     event.preventDefault();
     if (window.location.pathname === '/') {
@@ -697,6 +738,17 @@
     if (isAudioMuted) {
       stopAllRoleAudio();
     }
+  }
+
+  async function openAudioGate() {
+    if (isAudioGateOpening) return;
+    isAudioMuted = false;
+    isAudioGateOpening = true;
+    await unlockAmbientAudio();
+    window.setTimeout(() => {
+      isAudioGateVisible = false;
+      revealIntroLetters();
+    }, 1280);
   }
 
   async function unlockAmbientAudio() {
@@ -868,8 +920,18 @@
       return clamp(rawStep, -flowMotion.maxWheelStep, flowMotion.maxWheelStep);
     };
 
-    const onWheel   = (e: WheelEvent)    => { e.preventDefault(); queueFlow(normalizeWheelDelta(e)); };
+    const onWheel   = (e: WheelEvent)    => {
+      e.preventDefault();
+      if (isAudioGateVisible) return;
+      queueFlow(normalizeWheelDelta(e));
+    };
     const onKeydown = (e: KeyboardEvent) => {
+      if (isAudioGateVisible) {
+        const activeEl = document.activeElement;
+        if ((e.key === ' ' || e.key === 'Enter') && activeEl?.classList.contains('audio-gate-button')) return;
+        e.preventDefault();
+        return;
+      }
       unlockAmbientAudio();
       const step = keyFlowSteps[e.key];
       if (step !== undefined) { e.preventDefault(); queueFlow(step); }
@@ -877,6 +939,10 @@
 
     applyReelStyles();
     applyAllStyles();
+    gsap.set(introLetters, {
+      '--intro-letter-reveal': 0,
+      '--intro-reveal-y': '12px'
+    });
     gsap.ticker.add(moveFloatingAssets);
     window.addEventListener('wheel',   onWheel,   { passive: false });
     window.addEventListener('keydown', onKeydown);
@@ -886,6 +952,7 @@
       flowTween?.kill();
       mountFadeDelay?.kill();
       mountFadeTween?.kill();
+      introRevealTween?.kill();
       aboutTween?.kill();
       cancelAllAudioFrames();
       window.removeEventListener('wheel',   onWheel);
@@ -904,6 +971,43 @@
     rel="stylesheet"
   />
 </svelte:head>
+
+{#if isAudioGateVisible}
+  <section
+    class:is-opening={isAudioGateOpening}
+    class="audio-gate"
+    aria-labelledby="audio-gate-copy"
+    data-node-id="3238:1404"
+  >
+    <div class="audio-gate-content">
+      <span class="audio-gate-reveal" aria-hidden="true"></span>
+      <button
+        bind:this={audioGateButtonEl}
+        class="audio-gate-button"
+        type="button"
+        aria-label="Attiva l'audio e apri il sito"
+        onpointermove={tiltAudioGateButton}
+        onpointerleave={resetAudioGateButton}
+        onclick={openAudioGate}
+      >
+        <svg class="play-icon" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M10 7.5v13l11-6.5z" />
+        </svg>
+      </button>
+      <p id="audio-gate-copy" aria-label={audioGateMessage}>
+        {#each audioGateCharacters as { letter, isSpace, index } (index)}
+          {#if index === 32}
+            <br aria-hidden="true" />
+          {:else if isSpace}
+            <span class="space" aria-hidden="true">&nbsp;</span>
+          {:else}
+            <span style={`--gate-letter-index: ${index}`} aria-hidden="true">{letter}</span>
+          {/if}
+        {/each}
+      </p>
+    </div>
+  </section>
+{/if}
 
 
 <main bind:this={homeScreen} class="home">
@@ -1139,6 +1243,142 @@
   }
   :global(button), :global(a) { font: inherit; }
 
+  .audio-gate {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    overflow: hidden;
+    background: var(--color-text-primary);
+    color: var(--color-text-inverse);
+    opacity: 1;
+    transition: opacity 180ms ease 720ms;
+  }
+
+  .audio-gate.is-opening {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .audio-gate-content {
+    --gate-size: 80px;
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: grid;
+    justify-items: center;
+    gap: var(--spacing-5);
+    width: min(100%, 1512px);
+    transform: translate(-50%, -50%);
+  }
+
+  .audio-gate-reveal {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: calc(50% - var(--gate-size) / 2);
+    width: var(--gate-size);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--color-surface-page);
+    transform: translate3d(0, 0, 0) scale(1);
+    transform-origin: center;
+    transition: transform 1200ms cubic-bezier(0.84, 0, 0.16, 1);
+    will-change: transform;
+  }
+
+  .audio-gate-button {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    width: var(--gate-size);
+    aspect-ratio: 1;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--color-text-primary);
+    background: transparent;
+    cursor: pointer;
+    box-shadow: none;
+    transform:
+      translateZ(var(--gate-hover-z, 0px))
+      rotateX(var(--gate-tilt-x, 0deg))
+      rotateY(var(--gate-tilt-y, 0deg))
+      scale(var(--gate-scale, 1));
+    transition:
+      color 160ms ease,
+      opacity 160ms ease,
+      transform 180ms ease-out,
+      box-shadow 180ms ease;
+    will-change: transform, opacity;
+  }
+
+  .audio-gate-button:hover,
+  .audio-gate-button:focus-visible {
+    --gate-hover-z: 24px;
+    --gate-scale: 1.07;
+    color: var(--color-text-primary);
+    box-shadow: 0 20px 46px rgb(var(--shadow-dark-rgb) / 0.24);
+  }
+
+  .audio-gate-button:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: var(--unit-4);
+  }
+
+  .audio-gate.is-opening .audio-gate-button {
+    opacity: 0;
+    color: transparent;
+    transform: scale(1);
+    box-shadow: none;
+  }
+
+  .audio-gate.is-opening .audio-gate-reveal {
+    transform: translate3d(0, 0, 0) scale(48);
+  }
+
+  .audio-gate-content p {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    color: var(--color-text-inverse);
+    font-family: var(--font-text);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: center;
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .audio-gate.is-opening .audio-gate-content p {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .audio-gate-content p span {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: gateLetterIn 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(180ms + var(--gate-letter-index, 0) * 24ms);
+    will-change: opacity, transform;
+  }
+
+  .audio-gate-content p .space {
+    width: 0.58em;
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  @keyframes gateLetterIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .home {
     position: fixed; inset: 0;
     width: 100%; height: 100svh; overflow: hidden;
@@ -1180,6 +1420,12 @@
   .volume-icon {
     width: 28px; height: 28px; fill: none; stroke: currentColor;
     stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2;
+  }
+
+  .play-icon {
+    width: 30px;
+    height: 30px;
+    fill: currentColor;
   }
 
   .volume-slash {
@@ -1324,9 +1570,12 @@
   }
 
   .intro-audio {
+    position: absolute;
+    top: var(--spacing-7);
+    left: 50%;
     pointer-events: auto;
     opacity: var(--intro-audio-opacity, 1);
-    transform: translateY(var(--intro-audio-y, 0px));
+    transform: translate(-50%, var(--intro-audio-y, 0px));
     transition: color 160ms ease, opacity 140ms linear, transform 140ms ease-out;
     will-change: opacity, transform;
   }
@@ -1343,6 +1592,10 @@
     transform: translateY(var(--letter-y, 0px));
     transition: opacity 140ms linear, transform 140ms ease-out;
     will-change: opacity, transform;
+  }
+  .intro h1 .word > span {
+    opacity: calc(var(--letter-opacity, 1) * var(--intro-letter-reveal, 0));
+    transform: translateY(calc(var(--letter-y, 0px) + var(--intro-reveal-y, 12px)));
   }
   h1 .word { white-space: nowrap; }
   h1 .space { opacity: 1; transform: none; transition: none; width: 0.28em; }
@@ -1778,6 +2031,16 @@
   }
 
   @media (max-width: 700px) {
+    .audio-gate-content {
+      --gate-size: 72px;
+
+      width: calc(100% - var(--spacing-8));
+    }
+    .audio-gate-content p {
+      max-width: 280px;
+      white-space: normal;
+      font-size: 13px;
+    }
     .about-top-bar { height: var(--layout-topbar-height-mobile); padding: var(--layout-topbar-padding-mobile); }
     .logo         { font-size: 34px; }
     .close-icon,
@@ -1797,6 +2060,7 @@
       width: min(180px, 48vw);
     }
     .intro        { padding: var(--layout-page-gutter-mobile); }
+    .intro-audio  { top: calc(var(--unit-24) + var(--unit-4)); }
     h1, .next-message { font-size: 24px; }
     .reel-card    { width: min(34vw, 132px); }
     .next-screen  { padding: var(--layout-page-gutter-mobile); }
