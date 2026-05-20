@@ -1,4 +1,6 @@
 <script lang="ts">
+  import VolumeMaxIcon from '$lib/VolumeMaxIcon.svelte';
+  import VolumeOffIcon from '$lib/VolumeOffIcon.svelte';
   import { gsap } from 'gsap';
   import { onMount, tick } from 'svelte';
 
@@ -15,7 +17,6 @@
   let introLetters: HTMLElement[] = [];
   let nextLetters: HTMLElement[] = [];
   let introEl: HTMLElement;
-  let introAudioEl: HTMLElement;
   let audioGateButtonEl = $state<HTMLElement>();
   let isAudioGateVisible = $state(true);
   let isAudioGateOpening = $state(false);
@@ -283,7 +284,6 @@
     scaleLoss: 0.08,
     pointerCutoff: 0.82
   };
-  const introAudioMotion = { start: 0.2, duration: 0.24, y: -12, pointerCutoff: 0.9 };
   const brandSubtitleMotion = {
     inStart: 0.7,
     inDuration: 0.22,
@@ -382,7 +382,7 @@
     { src: '/videos/tiramisu.mp4', bg: 'var(--reel-placeholder-neutral)', fromX: -8,  fromY:  4, toX: -34, toY: -18, rotate: -8  },
     { src: '/videos/1.mp4',        bg: 'var(--color-text-primary)', fromX:  7,  fromY: -3, toX:  30, toY:  16, rotate:  7  },
     { src: '/videos/2.mp4',        bg: 'var(--reel-placeholder-gold)', fromX: -4,  fromY: -8, toX: -18, toY:  28, rotate:  10 },
-    { src: '/videos/3.mp4',        bg: 'var(--color-surface-dark)', fromX:  9,  fromY:  8, toX:  36, toY: -24, rotate: -11 },
+    { src: '/videos/3.mp4',        bg: 'var(--color-surface-dark)', fromX:  13, fromY:  8, toX:  36, toY: -24, rotate: -11, opacityOutStart: 0.58, opacityOutDuration: 0.16 },
     { src: '/videos/4.mp4',        bg: 'var(--reel-placeholder-lavender)', fromX: -10, fromY: -2, toX: -40, toY:   6, rotate:  -5 }
   ];
 
@@ -462,10 +462,12 @@
     const reel  = reels[index];
     const local = clamp((reelProgress - index * reelMotion.stagger - reelMotion.startOffset) / reelMotion.duration);
     const e     = ease(local);
+    const opacityOutStart = reel.opacityOutStart ?? reelMotion.opacityOutStart;
+    const opacityOutDuration = reel.opacityOutDuration ?? reelMotion.opacityOutDuration;
     return {
       z:       reelMotion.zStart + e * reelMotion.zRange,
       scale:   reelMotion.scaleStart + e * reelMotion.scaleRange,
-      opacity: clamp(local / reelMotion.opacityInDuration) * (1 - clamp((local - reelMotion.opacityOutStart) / reelMotion.opacityOutDuration)),
+      opacity: clamp(local / reelMotion.opacityInDuration) * (1 - clamp((local - opacityOutStart) / opacityOutDuration)),
       x:       reel.fromX + (reel.toX - reel.fromX) * e,
       y:       reel.fromY + (reel.toY - reel.fromY) * e,
       rotate:  reel.rotate * (reelMotion.rotateStartRatio + e * reelMotion.rotateEndRatio)
@@ -843,14 +845,6 @@
 
     // 4. Lettere intro: dissolvono con pageProgress
     applyLetterStyles(introLetters, pageProgress, introLetterOut);
-    const introAudioOut = ease(clamp((pageProgress - introAudioMotion.start) / introAudioMotion.duration));
-    setCssVars(introAudioEl, {
-      '--intro-audio-opacity': fixed(1 - introAudioOut),
-      '--intro-audio-y': px(introAudioOut * introAudioMotion.y)
-    });
-    if (introAudioEl) {
-      introAudioEl.style.pointerEvents = introAudioOut > introAudioMotion.pointerCutoff ? 'none' : 'auto';
-    }
 
     // 5. Lettere next: si rivelano con pageProgress
     applyLetterStyles(nextLetters, pageProgress, nextLetterIn);
@@ -994,11 +988,7 @@
             onpointerleave={resetAudioGateButton}
             onclick={() => openAudioGate(false, 'on')}
           >
-            <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
-              <path d="M4 11.5h5l6-5v15l-6-5H4z" />
-              <path d="M18.5 10a6 6 0 0 1 0 8" />
-              <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
-            </svg>
+            <VolumeMaxIcon class="volume-icon volume-max-icon" />
           </button>
         </div>
         <div class="audio-gate-button-wrap" class:is-active={activeAudioGateChoice === 'off'}>
@@ -1009,9 +999,7 @@
             aria-label="Entra con audio disattivato"
             onclick={() => openAudioGate(true, 'off')}
           >
-            <svg class="volume-icon" viewBox="0 0 25.5111 19.1" aria-hidden="true">
-              <path d="M17.7312 6.24441L24.3424 12.8556M17.7312 12.8556L24.3424 6.24442M7.57376 13.5316L9.5316 15.9544C10.5522 17.2174 11.0625 17.8489 11.5096 17.9177C11.8966 17.9772 12.2878 17.8389 12.5514 17.5494C12.8559 17.2149 12.8559 16.403 12.8559 14.7791V4.32085C12.8559 2.697 12.8559 1.88508 12.5514 1.55061C12.2878 1.26107 11.8966 1.12279 11.5096 1.1823C11.0625 1.25105 10.5522 1.88255 9.5316 3.14557L7.57377 5.56839C7.36758 5.82354 7.26449 5.95112 7.13693 6.04292C7.02392 6.12425 6.89729 6.18473 6.763 6.22151C6.61142 6.26303 6.4474 6.26303 6.11936 6.26303H4.45592C3.57215 6.26303 3.13027 6.26303 2.77316 6.381C2.07039 6.61317 1.5191 7.16445 1.28694 7.86722C1.16896 8.22433 1.16896 8.66622 1.16896 9.54999C1.16896 10.4338 1.16896 10.8756 1.28694 11.2327C1.5191 11.9355 2.07039 12.4868 2.77316 12.719C3.13027 12.8369 3.57215 12.8369 4.45592 12.8369H6.11936C6.4474 12.8369 6.61142 12.8369 6.763 12.8785C6.89729 12.9152 7.02392 12.9757 7.13693 13.0571C7.26449 13.1489 7.36758 13.2764 7.57376 13.5316Z" />
-            </svg>
+            <VolumeOffIcon class="volume-icon" />
           </button>
         </div>
       </div>
@@ -1030,6 +1018,21 @@
   </section>
 {/if}
 
+{#if !isAudioGateVisible && !isAboutOpen}
+  <button
+    class="icon-button persistent-top-audio"
+    type="button"
+    aria-label={audioLabel}
+    aria-pressed={isAudioMuted}
+    onclick={toggleAudioMuted}
+  >
+    {#if isAudioMuted}
+      <VolumeOffIcon class="volume-icon" />
+    {:else}
+      <VolumeMaxIcon class="volume-icon volume-max-icon" />
+    {/if}
+  </button>
+{/if}
 
 <main bind:this={homeScreen} class="home">
   <section class="intro" aria-labelledby="intro-title" bind:this={introEl}>
@@ -1051,23 +1054,6 @@
           {/if}
         {/each}
       </h1>
-      <button
-        bind:this={introAudioEl}
-        class="icon-button intro-audio"
-        type="button"
-        aria-label={audioLabel}
-        aria-pressed={isAudioMuted}
-        onclick={toggleAudioMuted}
-      >
-        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
-          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
-          <path d="M18.5 10a6 6 0 0 1 0 8" />
-          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
-          {#if isAudioMuted}
-            <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
-          {/if}
-        </svg>
-      </button>
     </div>
   </section>
 
@@ -1134,22 +1120,7 @@
 <section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenu">
   <header class="roles-top-bar" aria-label="Navigazione principale">
     <a class="logo" href="/" aria-label="Fuorimenu home" onclick={reloadHome}>FM</a>
-    <button
-      class="icon-button top-bar-audio"
-      type="button"
-      aria-label={audioLabel}
-      aria-pressed={isAudioMuted}
-      onclick={toggleAudioMuted}
-    >
-      <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
-        <path d="M4 11.5h5l6-5v15l-6-5H4z" />
-        <path d="M18.5 10a6 6 0 0 1 0 8" />
-        <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
-        {#if isAudioMuted}
-          <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
-        {/if}
-      </svg>
-    </button>
+    <span class="top-bar-audio top-bar-audio-slot" aria-hidden="true"></span>
     <button
       class="icon-button top-bar-menu"
       type="button"
@@ -1218,14 +1189,11 @@
         aria-pressed={isAudioMuted}
         onclick={toggleAudioMuted}
       >
-        <svg class="volume-icon" viewBox="0 0 28 28" aria-hidden="true">
-          <path d="M4 11.5h5l6-5v15l-6-5H4z" />
-          <path d="M18.5 10a6 6 0 0 1 0 8" />
-          <path d="M21 7.5a9.5 9.5 0 0 1 0 13" />
-          {#if isAudioMuted}
-            <path class="volume-slash" d="M5.5 4.5 23.5 23.5" />
-          {/if}
-        </svg>
+        {#if isAudioMuted}
+          <VolumeOffIcon class="volume-icon" />
+        {:else}
+          <VolumeMaxIcon class="volume-icon volume-max-icon" />
+        {/if}
       </button>
       <button
         class="icon-button top-bar-menu about-close"
@@ -1369,7 +1337,7 @@
     will-change: transform, opacity;
   }
 
-  .audio-gate-button .volume-icon {
+  .audio-gate-button :global(.volume-icon) {
     width: 28px;
     height: 28px;
     stroke-width: 1.8;
@@ -1465,6 +1433,20 @@
   .top-bar-audio { justify-self: center; }
   .top-bar-menu { justify-self: end; }
 
+  .top-bar-audio-slot {
+    display: block;
+    width: var(--button-icon-size);
+    height: var(--button-icon-size);
+  }
+
+  .persistent-top-audio {
+    position: fixed;
+    z-index: 60;
+    top: var(--spacing-7);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
   .roles-top-bar a {
     color: var(--color-interactive-primary);
     font-family: var(--font-display);
@@ -1484,12 +1466,16 @@
   .icon-button:hover         { opacity: 1; }
   .icon-button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: var(--unit-4); }
 
-  .volume-icon {
+  :global(.volume-icon) {
     width: 28px; height: 28px; fill: none; stroke: currentColor;
     stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2;
   }
 
-  .volume-slash {
+  :global(.volume-max-icon) {
+    stroke-width: 2.33333;
+  }
+
+  :global(.volume-slash) {
     stroke-width: 2.8;
   }
 
@@ -1628,17 +1614,6 @@
     display: grid;
     justify-items: center;
     gap: 22px;
-  }
-
-  .intro-audio {
-    position: absolute;
-    top: var(--spacing-7);
-    left: 50%;
-    pointer-events: auto;
-    opacity: var(--intro-audio-opacity, 1);
-    transform: translate(-50%, var(--intro-audio-y, 0px));
-    transition: color 160ms ease, opacity 140ms linear, transform 140ms ease-out;
-    will-change: opacity, transform;
   }
 
   h1, .next-message {
@@ -2129,7 +2104,7 @@
       width: min(180px, 48vw);
     }
     .intro        { padding: var(--layout-page-gutter-mobile); }
-    .intro-audio  { top: calc(var(--unit-24) + var(--unit-4)); }
+    .persistent-top-audio { top: calc(var(--unit-24) + var(--unit-4)); }
     h1, .next-message { font-size: 24px; }
     .next-message span { font-size: 24px; }
     .reel-card    { width: min(34vw, 132px); }
