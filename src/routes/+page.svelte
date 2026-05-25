@@ -245,7 +245,7 @@
     zRange: 1850,
     scaleStart: 0.28,
     scaleRange: 4.2,
-    opacityInDuration: 0.18,
+    scaleInDuration: 0.18,
     opacityOutStart: 0.76,
     opacityOutDuration: 0.24,
     rotateStartRatio: 0.35,
@@ -269,10 +269,16 @@
     viewSlowDistance: 0.54,
     fastExitPower: 5.2,
     exitSpeedStart: 0.9,
-    exitPushX: 22,
-    exitPushY: 14,
+    exitCompletion: 0.72,
+    exitPushX: 90,
+    exitPushY: 110,
     maxSpreadX: 78,
     maxSpreadY: 60,
+    exitMaxSpreadX: 154,
+    exitMaxSpreadY: 160,
+    autoExitFlowStart: 0.88,
+    autoReturnFlowTarget: 0.82,
+    autoSettleDuration: 0.36,
     shadowX: 18,
     shadowY: 10
   };
@@ -527,38 +533,42 @@
       : local < viewEnd
         ? reelMotion.slowIntroDistance + (reelMotion.viewSlowDistance - reelMotion.slowIntroDistance) * ease((local - introEnd) / (viewEnd - introEnd))
         : reelMotion.viewSlowDistance + (1 - reelMotion.viewSlowDistance) * (1 - Math.pow(1 - ((local - viewEnd) / (1 - viewEnd)), reelMotion.fastExitPower));
-    const opacityOutStart = reel.opacityOutStart ?? reelMotion.opacityOutStart;
-    const opacityOutDuration = reel.opacityOutDuration ?? reelMotion.opacityOutDuration;
-    const fade = clamp(local / reelMotion.opacityInDuration) * (1 - clamp((local - opacityOutStart) / opacityOutDuration));
+    const entryScale = ease(clamp(local / reelMotion.scaleInDuration));
+    const visibility = local > 0 ? 1 : 0;
     const pathX = reel.toX - reel.fromX;
     const pathY = reel.toY - reel.fromY;
     const pathLength = Math.hypot(pathX, pathY) || 1;
-    const directionX = (pathX / pathLength) * reelTravelDirection;
-    const directionY = (pathY / pathLength) * reelTravelDirection;
-    const drag = Math.sin(local * Math.PI) * fade;
+    const pathDirectionX = pathX / pathLength;
+    const pathDirectionY = pathY / pathLength;
+    const dragDirectionX = pathDirectionX * reelTravelDirection;
+    const dragDirectionY = pathDirectionY * reelTravelDirection;
+    const drag = Math.sin(local * Math.PI) * entryScale;
     const layerTravel = (travel - 0.5) * layer;
     const baseX = reel.fromX + (reel.toX - reel.fromX) * travel;
     const baseY = reel.fromY + (reel.toY - reel.fromY) * travel;
-    const exitBoost = Math.pow(clamp((local - reelMotion.exitSpeedStart) / (1 - reelMotion.exitSpeedStart)), reelMotion.fastExitPower);
+    const exitPhase = clamp((local - reelMotion.exitSpeedStart) / (1 - reelMotion.exitSpeedStart));
+    const exitBoost = ease(clamp(exitPhase / reelMotion.exitCompletion));
     const x = baseX * reelMotion.spreadRadius
-      + directionX * reelMotion.layerParallaxX * layerTravel
-      + directionX * reelMotion.exitPushX * exitBoost;
+      + pathDirectionX * reelMotion.layerParallaxX * layerTravel
+      + pathDirectionX * reelMotion.exitPushX * exitBoost;
     const y = baseY * reelMotion.spreadRadius
-      + directionY * reelMotion.layerParallaxY * layerTravel
-      + directionY * reelMotion.exitPushY * exitBoost;
+      + pathDirectionY * reelMotion.layerParallaxY * layerTravel
+      + pathDirectionY * reelMotion.exitPushY * exitBoost;
+    const maxX = reelMotion.maxSpreadX + (reelMotion.exitMaxSpreadX - reelMotion.maxSpreadX) * exitBoost;
+    const maxY = reelMotion.maxSpreadY + (reelMotion.exitMaxSpreadY - reelMotion.maxSpreadY) * exitBoost;
     return {
       z:       reelMotion.zStart + travel * reelMotion.zRange + layer * reelMotion.layerZ + drag * reelMotion.dragZLift,
-      scale:   reelMotion.scaleStart + travel * reelMotion.scaleRange + layer * reelMotion.layerScale + drag * reelMotion.dragScale,
-      opacity: fade,
-      x:       clamp(x, -reelMotion.maxSpreadX, reelMotion.maxSpreadX),
-      y:       clamp(y, -reelMotion.maxSpreadY, reelMotion.maxSpreadY),
+      scale:   (reelMotion.scaleStart + travel * reelMotion.scaleRange + layer * reelMotion.layerScale + drag * reelMotion.dragScale) * entryScale,
+      opacity: visibility,
+      x:       clamp(x, -maxX, maxX),
+      y:       clamp(y, -maxY, maxY),
       rotate:  reel.rotate * (reelMotion.rotateStartRatio + travel * reelMotion.rotateEndRatio),
-      tiltX:   -directionY * reelMotion.dragTiltX * drag,
-      tiltY:   directionX * reelMotion.dragTiltY * drag,
-      mediaX:  -directionX * reelMotion.mediaParallaxX * drag,
-      mediaY:  -directionY * reelMotion.mediaParallaxY * drag,
-      shadowX: directionX * reelMotion.shadowX * drag,
-      shadowY: 36 + Math.abs(directionY) * reelMotion.shadowY * drag
+      tiltX:   -dragDirectionY * reelMotion.dragTiltX * drag,
+      tiltY:   dragDirectionX * reelMotion.dragTiltY * drag,
+      mediaX:  -dragDirectionX * reelMotion.mediaParallaxX * drag,
+      mediaY:  -dragDirectionY * reelMotion.mediaParallaxY * drag,
+      shadowX: dragDirectionX * reelMotion.shadowX * drag,
+      shadowY: 36 + Math.abs(dragDirectionY) * reelMotion.shadowY * drag
     };
   }
 
@@ -987,7 +997,7 @@
       applyAllStyles();
     };
 
-    const tweenFlowTo = (value: number, duration = flowMotion.duration) => {
+    const tweenFlowTo = (value: number, duration = flowMotion.duration, onComplete?: () => void) => {
       targetFlowValue = clamp(value, 0, flowTotalMax);
       isAutoScrolling = false;
       flowTween = gsap.to(flowState, {
@@ -995,7 +1005,8 @@
         duration,
         ease: flowMotion.ease,
         overwrite: true,
-        onUpdate: () => applyFlowTotal(flowState.value)
+        onUpdate: () => applyFlowTotal(flowState.value),
+        onComplete
       });
     };
 
@@ -1052,9 +1063,19 @@
       const unclampedTarget = targetFlowValue + effectiveDelta;
       const minTarget = flowState.value - targetLead;
       const maxTarget = flowState.value + targetLead;
+      const nextTarget = clamp(unclampedTarget, minTarget, maxTarget);
+      const settleReelExit = () => {
+        if (!isMovingThroughReels || nextTarget >= 1 || nextTarget <= reelMotion.autoReturnFlowTarget) return;
+        if (delta > 0 && nextTarget >= reelMotion.autoExitFlowStart) {
+          autoFlowTo(1, reelMotion.autoSettleDuration);
+        } else if (delta < 0 && nextTarget >= reelMotion.autoExitFlowStart) {
+          autoFlowTo(reelMotion.autoReturnFlowTarget, reelMotion.autoSettleDuration);
+        }
+      };
       tweenFlowTo(
-        clamp(unclampedTarget, minTarget, maxTarget),
-        isMovingThroughReels ? flowMotion.reelDuration : flowMotion.duration
+        nextTarget,
+        isMovingThroughReels ? flowMotion.reelDuration : flowMotion.duration,
+        settleReelExit
       );
     };
 
