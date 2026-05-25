@@ -222,16 +222,16 @@
     '--role-person-y': '0px'
   };
   const brandLetterMotion = {
-    arrivalSpread: 0.62,
-    arrivalDuration: 0.22,
+    arrivalSpread: 0.36,
+    arrivalDuration: 0.68,
     arrivalDepth: 420,
     introScale: 1.9,
     opacityDelay: 0.42,
     opacityRamp: 0.3,
-    burstStart: 1.9,
-    burstDuration: 0.86,
-    burstSpread: 0.5,
-    burstStaggerDuration: 0.18,
+    burstStart: 2.1,
+    burstDuration: 1.86,
+    burstSpread: 0.64,
+    burstStaggerDuration: 0.36,
     burstScale: 1.35
   };
   const reelMotion = {
@@ -282,9 +282,9 @@
   };
   const floatingExitMotion = {
     start: 1.42,
-    duration: 0.64,
-    fadeStart: 0.72,
-    fadeDuration: 0.28,
+    duration: 0.92,
+    fadeStart: 0.76,
+    fadeDuration: 0.34,
     scaleLoss: 0.08,
     pointerCutoff: 0.82
   };
@@ -387,7 +387,17 @@
     { src: '/videos/1.mp4',        bg: 'var(--color-text-primary)', fromX:  7,  fromY: -3, toX:  30, toY:  16, rotate:  7  },
     { src: '/videos/2.mp4',        bg: 'var(--reel-placeholder-gold)', fromX: -4,  fromY: -8, toX: -18, toY:  28, rotate:  10 },
     { src: '/videos/3.mp4',        bg: 'var(--color-surface-dark)', fromX:  13, fromY:  8, toX:  36, toY: -24, rotate: -11, opacityOutStart: 0.58, opacityOutDuration: 0.16 },
-    { src: '/videos/4.mp4',        bg: 'var(--reel-placeholder-lavender)', fromX: -10, fromY: -2, toX: -40, toY:   6, rotate:  -5 }
+    { src: '/videos/4.mp4',        bg: 'var(--reel-placeholder-lavender)', fromX: -10, fromY: -2, toX: -40, toY:   6, rotate:  -5 },
+    { src: '/videos/5.MP4',        bg: 'var(--reel-placeholder-neutral)', fromX:  5,  fromY:  6, toX:  24, toY: -30, rotate:   9 },
+    { src: '/videos/6.MP4',        bg: 'var(--reel-placeholder-gold)', fromX: -12, fromY:  7, toX: -28, toY:  18, rotate: -12 },
+    { src: '/videos/7.MP4',        bg: 'var(--color-text-primary)', fromX:  10, fromY: -7, toX:  38, toY:   2, rotate:   5 },
+    { src: '/videos/8.MP4',        bg: 'var(--color-surface-dark)', fromX: -6,  fromY: -5, toX: -36, toY: -28, rotate:   8 },
+    { src: '/videos/9.MP4',        bg: 'var(--reel-placeholder-lavender)', fromX:  12, fromY:  3, toX:  42, toY:  24, rotate: -9  },
+    { src: '/videos/10.MP4',       bg: 'var(--reel-placeholder-neutral)', fromX: -3,  fromY:  9, toX: -16, toY:  34, rotate:   6 },
+    { src: '/videos/11.MP4',       bg: 'var(--color-text-primary)', fromX:  3,  fromY: -9, toX:  16, toY: -34, rotate: -7  },
+    { src: '/videos/12.MP4',       bg: 'var(--reel-placeholder-gold)', fromX: -14, fromY:  1, toX: -44, toY: -4, rotate:  11 },
+    { src: '/videos/13.MP4',       bg: 'var(--color-surface-dark)', fromX:  14, fromY: -1, toX:  44, toY:   8, rotate: -10 },
+    { src: '/videos/14.MP4',       bg: 'var(--reel-placeholder-lavender)', fromX: -7,  fromY: -10, toX: -22, toY: -36, rotate:  -6 }
   ];
 
   function shuffleIndexes(indexes: number[]) {
@@ -465,7 +475,9 @@
 
   function getReelPresentation(index: number) {
     const reel  = reels[index];
-    const local = clamp((reelProgress - index * reelMotion.stagger - reelMotion.startOffset) / reelMotion.duration);
+    const availableStaggerWindow = Math.max(0, 1 - reelMotion.startOffset - reelMotion.duration);
+    const reelStagger = Math.min(reelMotion.stagger, availableStaggerWindow / Math.max(reels.length - 1, 1));
+    const local = clamp((reelProgress - index * reelStagger - reelMotion.startOffset) / reelMotion.duration);
     const e     = ease(local);
     const opacityOutStart = reel.opacityOutStart ?? reelMotion.opacityOutStart;
     const opacityOutDuration = reel.opacityOutDuration ?? reelMotion.opacityOutDuration;
@@ -927,26 +939,26 @@
       const isCopyForwardStep = delta > 0 && flowState.value >= copyScrollStart && flowState.value < copyScrollEnd;
       const isCopyBackStep = delta < 0 && flowState.value > copyScrollStart && flowState.value <= copyScrollEnd;
       if (isCopyForwardStep || isCopyBackStep) {
-        autoFlowTo(isCopyForwardStep ? copyScrollEnd : copyScrollStart, 2.2);
+        autoFlowTo(isCopyForwardStep ? copyScrollEnd : copyScrollStart, 1.35);
         return;
       }
 
       const isBrandForwardStep = delta > 0 && flowState.value >= copyScrollEnd && flowState.value < brandCopyScrollEnd;
       const isBrandBackStep = delta < 0 && flowState.value > copyScrollEnd && flowState.value <= brandCopyScrollEnd;
       if (isBrandForwardStep || isBrandBackStep) {
-        autoFlowTo(isBrandForwardStep ? brandCopyScrollEnd : copyScrollEnd, 2.35);
+        autoFlowTo(isBrandForwardStep ? brandCopyScrollEnd : copyScrollEnd, 1.55);
         return;
       }
 
       const isRolesForwardStep = delta > 0 && flowState.value >= brandCopyScrollEnd && flowState.value < rolesScrollVisible;
       const isRolesBackStep = delta < 0 && flowState.value > brandCopyScrollEnd && flowState.value <= flowTotalMax;
       if (isRolesForwardStep) {
-        autoFlowTo(rolesScrollVisible, 1.25);
+        autoFlowTo(rolesScrollVisible, 1.75);
         return;
       }
 
       if (isRolesBackStep) {
-        autoFlowTo(brandCopyScrollEnd, 1.05);
+        autoFlowTo(brandCopyScrollEnd, 1.45);
         return;
       }
 
