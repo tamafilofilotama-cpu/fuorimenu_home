@@ -1813,7 +1813,7 @@
     z-index: 3;
     display: grid;
     justify-items: center;
-    gap: 30px;
+    gap: 4px;
     width: min(1240px, calc(100vw - 24px));
     padding-block: clamp(18px, 4vh, 64px);
     overflow: visible;
@@ -2178,7 +2178,7 @@
     .reel-card    { width: min(38vw, 148px); }
     .next-screen  { padding: var(--layout-page-gutter-mobile); }
     .brand-word   { font-size: clamp(40px, 10.5vw, 76px); }
-    .brand-lockup { gap: 12px; }
+    .brand-lockup { gap: 8px; }
     .brand-subtitle { font-size: 24px; }
     .floating-raviolo { width: clamp(86px, 28vw, 124px); }
     .floating-pizza { width: clamp(92px, 30vw, 132px); }
