@@ -201,8 +201,12 @@
     duration: 0.82,
     reelDuration: 0.34,
     ease: 'power3.out',
-    maxWheelStep: 0.085,
-    maxTargetLead: 0.34,
+    autoEase: 'power2.out',
+    reverseRolesEase: 'power2.inOut',
+    maxWheelStep: 0.066,
+    reverseMaxWheelStep: 0.084,
+    maxTargetLead: 0.25,
+    reverseMaxTargetLead: 0.34,
     reelScrollSlowdown: 2.1,
     reelMaxTargetLead: 0.88
   };
@@ -1010,13 +1014,13 @@
       });
     };
 
-    const autoFlowTo = (value: number, duration: number) => {
+    const autoFlowTo = (value: number, duration: number, ease = flowMotion.autoEase) => {
       targetFlowValue = clamp(value, 0, flowTotalMax);
       isAutoScrolling = true;
       flowTween = gsap.to(flowState, {
         value: targetFlowValue,
         duration,
-        ease: 'power1.inOut',
+        ease,
         overwrite: true,
         onUpdate: () => applyFlowTotal(flowState.value),
         onComplete: () => {
@@ -1033,32 +1037,36 @@
       const isCopyForwardStep = delta > 0 && flowState.value >= copyScrollStart && flowState.value < copyScrollEnd;
       const isCopyBackStep = delta < 0 && flowState.value > copyScrollStart && flowState.value <= copyScrollEnd;
       if (isCopyForwardStep || isCopyBackStep) {
-        autoFlowTo(isCopyForwardStep ? copyScrollEnd : copyScrollStart, 1.35);
+        autoFlowTo(isCopyForwardStep ? copyScrollEnd : copyScrollStart, isCopyForwardStep ? 1.54 : 1.36);
         return;
       }
 
       const isBrandForwardStep = delta > 0 && flowState.value >= copyScrollEnd && flowState.value < brandCopyScrollEnd;
       const isBrandBackStep = delta < 0 && flowState.value > copyScrollEnd && flowState.value <= brandCopyScrollEnd;
       if (isBrandForwardStep || isBrandBackStep) {
-        autoFlowTo(isBrandForwardStep ? brandCopyScrollEnd : copyScrollEnd, 1.55);
+        autoFlowTo(isBrandForwardStep ? brandCopyScrollEnd : copyScrollEnd, isBrandForwardStep ? 1.72 : 1.5);
         return;
       }
 
       const isRolesForwardStep = delta > 0 && flowState.value >= brandCopyScrollEnd && flowState.value < rolesScrollVisible;
       const isRolesBackStep = delta < 0 && flowState.value > brandCopyScrollEnd && flowState.value <= flowTotalMax;
       if (isRolesForwardStep) {
-        autoFlowTo(rolesScrollVisible, 1.75);
+        autoFlowTo(rolesScrollVisible, 1.96);
         return;
       }
 
       if (isRolesBackStep) {
-        autoFlowTo(brandCopyScrollEnd, 1.45);
+        autoFlowTo(brandCopyScrollEnd, 1.48, flowMotion.reverseRolesEase);
         return;
       }
 
       const isMovingThroughReels = flowState.value < 1 || (delta < 0 && flowState.value <= copyScrollStart);
       const effectiveDelta = isMovingThroughReels ? delta * flowMotion.reelScrollSlowdown : delta;
-      const targetLead = isMovingThroughReels ? flowMotion.reelMaxTargetLead : flowMotion.maxTargetLead;
+      const targetLead = isMovingThroughReels
+        ? flowMotion.reelMaxTargetLead
+        : delta < 0
+          ? flowMotion.reverseMaxTargetLead
+          : flowMotion.maxTargetLead;
       targetFlowValue = flowState.value;
       const unclampedTarget = targetFlowValue + effectiveDelta;
       const minTarget = flowState.value - targetLead;
@@ -1086,7 +1094,7 @@
           ? window.innerHeight
           : 1;
       const rawStep = (e.deltaY * unit) / 2400;
-      return clamp(rawStep, -flowMotion.maxWheelStep, flowMotion.maxWheelStep);
+      return clamp(rawStep, -flowMotion.reverseMaxWheelStep, flowMotion.maxWheelStep);
     };
 
     const onWheel   = (e: WheelEvent)    => {
