@@ -173,9 +173,8 @@
   let brandBurstMotion = brandLetters.map(() => ({ x: 0, y: 0, rotate: 0 }));
   let brandLetterEls: HTMLElement[] = [];
   let floatingEls: HTMLElement[] = [];
-  const rolesRevealStart = 2;
-  const rolesRevealDuration = 0.58;
-  const rolesScreenFadeEnd = 0.52;
+  const rolesRevealStart = 2.24;
+  const rolesRevealDuration = 0.34;
   const roleCardStagger = 0.055;
   const roleCardRevealDuration = 0.2;
   const brandScrollMax = rolesRevealStart + rolesRevealDuration;
@@ -183,8 +182,7 @@
   const copyScrollStart = 1;
   const copyScrollEnd = 2;
   const brandCopyScrollEnd = 3.18;
-  const rolesScrollStart = 2 + rolesRevealStart;
-  const rolesScrollVisible = rolesScrollStart + rolesRevealDuration;
+  const rolesScrollVisible = 2 + brandScrollMax;
   const introLetterOut: LetterStyleOptions = { start: 0.2, end: 0.5, windowSize: 0.08, invert: true, dy: 12 };
   const nextLetterIn: LetterStyleOptions = { start: 0.45, end: 0.92, windowSize: 0.07, invert: false, dy: 12 };
   const aboutClosedVars = { clipPath: 'inset(0 0 0 100%)', xPercent: 6 };
@@ -201,8 +199,9 @@
     duration: 0.82,
     reelDuration: 0.34,
     ease: 'power3.out',
+    autoStepDuration: 1.72,
     autoEase: 'power2.out',
-    reverseRolesEase: 'power2.inOut',
+    reverseAutoEase: 'power2.out',
     maxWheelStep: 0.066,
     reverseMaxWheelStep: 0.084,
     maxTargetLead: 0.25,
@@ -235,10 +234,10 @@
     introScale: 1.9,
     opacityDelay: 0.42,
     opacityRamp: 0.3,
-    burstStart: 2.1,
-    burstDuration: 1.86,
-    burstSpread: 0.64,
-    burstStaggerDuration: 0.36,
+    burstStart: 1.74,
+    burstDuration: 0.84,
+    burstSpread: 0.42,
+    burstStaggerDuration: 0.38,
     burstScale: 1.35
   };
   const reelMotion = {
@@ -320,7 +319,7 @@
   };
   const floatingExitMotion = {
     start: 1.42,
-    duration: 0.92,
+    duration: 1.16,
     fadeStart: 0.76,
     fadeDuration: 0.34,
     scaleLoss: 0.08,
@@ -937,13 +936,14 @@
     });
 
     const rolesProgress = clamp((brandProgress - rolesRevealStart) / rolesRevealDuration);
-    const rolesEase = ease(clamp(rolesProgress / rolesScreenFadeEnd));
+    const rolesEase = ease(rolesProgress);
     if (rolesScreen) {
       setLayerState(rolesScreen, rolesEase, rolesProgress > 0.08);
     }
     roleCards.forEach((card, index) => {
       if (!card) return;
-      const cardProgress = clamp((rolesProgress - index * roleCardStagger) / roleCardRevealDuration);
+      const cardStart = index * roleCardStagger;
+      const cardProgress = clamp((rolesProgress - cardStart) / Math.max(1 - cardStart, roleCardRevealDuration));
       const cardEase = ease(cardProgress);
       setCssVars(card, {
         '--role-card-y': vh((1 - cardEase) * 38),
@@ -1032,31 +1032,55 @@
       });
     };
     const queueFlow = (delta: number) => {
-      if (isAutoScrolling) return;
+      if (isAutoScrolling) {
+        const autoDirection = Math.sign(targetFlowValue - flowState.value);
+        const inputDirection = Math.sign(delta);
+        if (inputDirection === 0 || autoDirection === 0 || inputDirection === autoDirection) return;
+        flowTween?.kill();
+        isAutoScrolling = false;
+        targetFlowValue = flowState.value;
+      }
 
       const isCopyForwardStep = delta > 0 && flowState.value >= copyScrollStart && flowState.value < copyScrollEnd;
       const isCopyBackStep = delta < 0 && flowState.value > copyScrollStart && flowState.value <= copyScrollEnd;
       if (isCopyForwardStep || isCopyBackStep) {
-        autoFlowTo(isCopyForwardStep ? copyScrollEnd : copyScrollStart, isCopyForwardStep ? 1.54 : 1.36);
+        const target = isCopyForwardStep ? copyScrollEnd : copyScrollStart;
+        autoFlowTo(
+          target,
+          flowMotion.autoStepDuration,
+          isCopyForwardStep ? flowMotion.autoEase : flowMotion.reverseAutoEase
+        );
         return;
       }
 
       const isBrandForwardStep = delta > 0 && flowState.value >= copyScrollEnd && flowState.value < brandCopyScrollEnd;
       const isBrandBackStep = delta < 0 && flowState.value > copyScrollEnd && flowState.value <= brandCopyScrollEnd;
       if (isBrandForwardStep || isBrandBackStep) {
-        autoFlowTo(isBrandForwardStep ? brandCopyScrollEnd : copyScrollEnd, isBrandForwardStep ? 1.72 : 1.5);
+        const target = isBrandForwardStep ? brandCopyScrollEnd : copyScrollEnd;
+        autoFlowTo(
+          target,
+          flowMotion.autoStepDuration,
+          isBrandForwardStep ? flowMotion.autoEase : flowMotion.reverseAutoEase
+        );
         return;
       }
 
-      const isRolesForwardStep = delta > 0 && flowState.value >= brandCopyScrollEnd && flowState.value < rolesScrollVisible;
-      const isRolesBackStep = delta < 0 && flowState.value > brandCopyScrollEnd && flowState.value <= flowTotalMax;
-      if (isRolesForwardStep) {
-        autoFlowTo(rolesScrollVisible, 1.96);
+      const isBrandExitForwardStep = delta > 0 && flowState.value >= brandCopyScrollEnd && flowState.value < rolesScrollVisible;
+      const isBrandExitBackStep = delta < 0 && flowState.value > brandCopyScrollEnd && flowState.value <= flowTotalMax;
+      if (isBrandExitForwardStep) {
+        autoFlowTo(
+          rolesScrollVisible,
+          flowMotion.autoStepDuration
+        );
         return;
       }
 
-      if (isRolesBackStep) {
-        autoFlowTo(brandCopyScrollEnd, 1.48, flowMotion.reverseRolesEase);
+      if (isBrandExitBackStep) {
+        autoFlowTo(
+          brandCopyScrollEnd,
+          flowMotion.autoStepDuration,
+          flowMotion.reverseAutoEase
+        );
         return;
       }
 
