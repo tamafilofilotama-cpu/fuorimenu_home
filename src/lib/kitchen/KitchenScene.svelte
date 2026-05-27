@@ -1,28 +1,47 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import {
+    kitchenHelmetGeometry,
+    kitchenSceneConfig
+  } from './kitchen-scene.config';
+  import { createSceneController } from '$lib/scene/controller';
+  import { clamp, px } from '$lib/scene/math';
+  import { createViewportObserver } from '$lib/scene/viewport';
+  import type {
+    KitchenControllerEvents,
+    KitchenControllerState
+  } from '$lib/phaser/kitchen-controller';
 
-  const sceneWidth = 8192;
-  const sceneHeight = 1211;
-  const assetWidth = 8192;
-  const foregroundSvgWidth = 5929;
-  const foregroundSvgHeight = 1022;
-  const foregroundBottomOffset = -180;
-  const floorHeight = 225;
-  const floorTileWidth = 224;
-  const chefX = 1390;
-  const chefWidth = 300;
-  const layerSpeed = {
-    background: 0.38,
-    middle: 0.78,
-    title: 1.2,
-    chef: 1.2,
-    foreground: 1.14
+  const {
+    assetWidth,
+    chef,
+    chefQuote,
+    cursorCss,
+    floorHeight,
+    floorTileWidth,
+    foregroundBottomOffset,
+    foregroundSvgHeight,
+    foregroundSvgWidth,
+    helmet,
+    layerSpeed,
+    pointerCursorCss,
+    sceneHeight,
+    sceneWidth,
+    title
+  } = kitchenSceneConfig;
+  const titleLetters = title.split('');
+  const initialKitchenState: KitchenControllerState = {
+    cameraX: 0,
+    targetCameraX: 0,
+    progress: 0,
+    helmetRotation: 0,
+    helmetLift: 0,
+    activeChefId: undefined
   };
-  const cursorCss = "url('/cursors/retrogusto-cursor.svg') 5 5, auto";
-  const pointerCursorCss = "url('/cursors/retrogusto-cursor.svg') 5 5, pointer";
-  const titleLetters = 'Cucina'.split('');
-  const chefQuote =
-    'Il 30 di gennaio era ancora un cantiere, quindi si entrava con l\'elmetto, col giubbotto catarifrangente e le scarpe antinfortunistiche.';
+  const sceneController = createSceneController<KitchenControllerState, KitchenControllerEvents>(
+    initialKitchenState
+  );
+  const { bridge } = sceneController;
 
   let stageEl: HTMLElement;
   let viewportWidth = $state(0);
@@ -31,7 +50,7 @@
   let narrativeProgress = $state(0);
   let helmetRotation = $state(0);
   let helmetLift = $state(0);
-  let activeChefId = $state<'carlo' | undefined>();
+  let activeChefId = $state<KitchenControllerState['activeChefId']>();
   let kitchenController:
     | {
         scrollBy: (delta: number) => void;
@@ -48,39 +67,16 @@
   let isHelmetVideoOpen = $state(false);
   let isSceneLoaded = $state(false);
 
-  const helmetHotspot = {
-    x: 1998,
-    y: 404,
-    width: 116,
-    height: 104
-  };
-  const helmetSource = {
-    x: 1998,
-    y: 436,
-    width: 116,
-    height: 104
-  };
-  const helmetPivot = {
-    x: helmetSource.x + helmetSource.width * 0.78,
-    y: helmetSource.y + helmetSource.height * 0.09
-  };
-  const helmetOffset = {
-    x: helmetHotspot.x - helmetSource.x,
-    y: helmetHotspot.y - helmetSource.y
-  };
-  const helmetVideoPlaceholder = {
-    x: 2158,
-    y: 292,
-    width: 430,
-    height: 248
-  };
+  const helmetSource = helmet.source;
+  const helmetPivot = kitchenHelmetGeometry.pivot;
+  const helmetOffset = kitchenHelmetGeometry.offset;
+  const helmetVideoPlaceholder = helmet.videoPlaceholder;
 
   const sceneScale = $derived(viewportHeight ? viewportHeight / sceneHeight : 1);
   const worldWidth = $derived(Math.max(viewportWidth, sceneWidth * sceneScale));
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
 
-  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-  const px = (value: number) => `${value.toFixed(2)}px`;
+  const scenePx = (value: number) => px(value, 2);
 
   function syncViewport() {
     if (!stageEl) return;
@@ -96,9 +92,9 @@
 
   function getLayerStyle(factor: number, bottomOffset = 0) {
     return [
-      `width: ${px(assetWidth * sceneScale)}`,
-      `bottom: ${px(bottomOffset * sceneScale)}`,
-      `transform: translate3d(${px(-cameraX * factor)}, 0, 0)`
+      `width: ${scenePx(assetWidth * sceneScale)}`,
+      `bottom: ${scenePx(bottomOffset * sceneScale)}`,
+      `transform: translate3d(${scenePx(-cameraX * factor)}, 0, 0)`
     ].join(';');
   }
 
@@ -106,26 +102,26 @@
     const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
 
     return [
-      `width: ${px(assetWidth * sceneScale)}`,
-      `height: ${px(foregroundSvgHeight * foregroundScale)}`,
-      `bottom: ${px(foregroundBottomOffset * sceneScale)}`,
-      `transform: translate3d(${px(-cameraX * layerSpeed.foreground)}, 0, 0)`
+      `width: ${scenePx(assetWidth * sceneScale)}`,
+      `height: ${scenePx(foregroundSvgHeight * foregroundScale)}`,
+      `bottom: ${scenePx(foregroundBottomOffset * sceneScale)}`,
+      `transform: translate3d(${scenePx(-cameraX * layerSpeed.foreground)}, 0, 0)`
     ].join(';');
   }
 
   function getTitleStyle() {
     return [
-      `left: ${px(92 * sceneScale - cameraX * layerSpeed.title)}`,
-      `top: ${px(viewportHeight / 2 - 132 * sceneScale)}`,
-      `font-size: ${px(255 * sceneScale)}`
+      `left: ${scenePx(92 * sceneScale - cameraX * layerSpeed.title)}`,
+      `top: ${scenePx(viewportHeight / 2 - 132 * sceneScale)}`,
+      `font-size: ${scenePx(255 * sceneScale)}`
     ].join(';');
   }
 
   function getChefStyle() {
     return [
-      `left: ${px(chefX * sceneScale - cameraX * layerSpeed.chef)}`,
-      `bottom: ${px(viewportHeight / 20)}`,
-      `width: ${px(chefWidth * sceneScale)}`
+      `left: ${scenePx(chef.x * sceneScale - cameraX * layerSpeed.chef)}`,
+      `bottom: ${scenePx(viewportHeight / 20)}`,
+      `width: ${scenePx(chef.width * sceneScale)}`
     ].join(';');
   }
 
@@ -161,38 +157,34 @@
 
   onMount(() => {
     let destroyed = false;
-    const resizeObserver = new ResizeObserver(syncViewport);
-    resizeObserver.observe(stageEl);
-    syncViewport();
+    const { resources } = sceneController;
+    resources.add(bridge.subscribe((state) => {
+      cameraX = state.cameraX;
+      narrativeProgress = state.progress;
+      helmetRotation = state.helmetRotation;
+      helmetLift = state.helmetLift;
+      activeChefId = state.activeChefId;
+    }));
+    resources.add(createViewportObserver(stageEl, syncViewport));
 
     import('$lib/phaser/kitchen-controller').then(({ mountKitchenController }) => {
       if (destroyed) return;
       kitchenController = mountKitchenController({
-        sceneWidth,
-        sceneHeight,
-        chefX,
-        chefWidth,
+        bridge,
+        config: kitchenSceneConfig,
         getViewport: () => ({ width: viewportWidth, height: viewportHeight }),
-        onUpdate: (state) => {
-          cameraX = state.cameraX;
-          narrativeProgress = state.progress;
-          helmetRotation = state.helmetRotation;
-          helmetLift = state.helmetLift;
-          activeChefId = state.activeChefId;
-        }
       });
+      resources.add(() => kitchenController?.destroy());
     });
 
-    requestAnimationFrame(() => {
+    resources.addFrame(() => {
       isSceneLoaded = true;
     });
-    window.addEventListener('keydown', onKeydown);
+    resources.addEventListener(window, 'keydown', onKeydown as EventListener);
 
     return () => {
       destroyed = true;
-      kitchenController?.destroy();
-      resizeObserver.disconnect();
-      window.removeEventListener('keydown', onKeydown);
+      sceneController.destroy();
     };
   });
 </script>
@@ -221,7 +213,7 @@
 
   <div
     class="floor-layer reveal-layer"
-    style={`height: ${px(floorHeight * sceneScale)}; background-size: ${px(floorTileWidth * sceneScale)} ${px(floorHeight * sceneScale)}; background-position-x: ${px(-cameraX)}; --reveal-delay: 160ms; --reveal-duration: 1120ms;`}
+    style={`height: ${scenePx(floorHeight * sceneScale)}; background-size: ${scenePx(floorTileWidth * sceneScale)} ${scenePx(floorHeight * sceneScale)}; background-position-x: ${scenePx(-cameraX)}; --reveal-delay: 160ms; --reveal-duration: 1120ms;`}
   ></div>
 
   <div

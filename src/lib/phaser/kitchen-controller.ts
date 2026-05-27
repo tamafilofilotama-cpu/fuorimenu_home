@@ -1,9 +1,19 @@
 import Phaser from 'phaser';
-
-type Viewport = {
-  width: number;
-  height: number;
-};
+import { createHelmetMotion } from '$lib/kitchen/helmet-motion';
+import {
+  kitchenSceneConfig,
+  type KitchenChefId,
+  type KitchenSceneConfig
+} from '$lib/kitchen/kitchen-scene.config';
+import { setupSceneBridge, type SceneBridge } from '$lib/scene/bridge';
+import { createTriggerRegistry } from '$lib/scene/triggers';
+import {
+  createSceneTracker,
+  getVisibleRatio,
+  type HorizontalSceneMetrics,
+  type Viewport
+} from '$lib/scene/viewport';
+import { mountHeadlessPhaserScene } from './headless-scene';
 
 export type KitchenControllerState = {
   cameraX: number;
@@ -11,212 +21,159 @@ export type KitchenControllerState = {
   progress: number;
   helmetRotation: number;
   helmetLift: number;
-  activeChefId: 'carlo' | undefined;
+  activeChefId: KitchenChefId | undefined;
 };
 
+export type KitchenControllerEvents = {
+  'chef:enter': { id: KitchenChefId };
+  'chef:exit': { id: KitchenChefId };
+  'helmet:hover': { isHovered: boolean };
+};
+
+export type KitchenControllerBridge = SceneBridge<KitchenControllerState, KitchenControllerEvents>;
+
 type KitchenControllerOptions = {
-  sceneWidth: number;
-  sceneHeight: number;
-  chefX: number;
-  chefWidth: number;
+  bridge?: KitchenControllerBridge;
+  config?: KitchenSceneConfig;
   getViewport: () => Viewport;
-  onUpdate: (state: KitchenControllerState) => void;
+  onUpdate?: (state: KitchenControllerState) => void;
+};
+
+type KitchenTriggerContext = {
+  cameraX: number;
+  config: KitchenSceneConfig;
+  metrics: HorizontalSceneMetrics;
+};
+
+export const initialKitchenControllerState: KitchenControllerState = {
+  cameraX: 0,
+  targetCameraX: 0,
+  progress: 0,
+  helmetRotation: 0,
+  helmetLift: 0,
+  activeChefId: undefined
 };
 
 class KitchenControllerScene extends Phaser.Scene {
-  private cameraX = 0;
-  private targetCameraX = 0;
-  private dragStartX = 0;
-  private dragCameraX = 0;
-  private helmetAngle = Phaser.Math.DegToRad(5.2);
-  private helmetAngularVelocity = 0.38;
-  private helmetLift = 0;
-  private helmetHoverStartAngle = 0;
-  private helmetHoverElapsed = 0;
-  private isHelmetHovered = false;
-  private isDragging = false;
-  private options: KitchenControllerOptions;
+  private activeChefId: KitchenChefId | undefined;
+  private readonly bridge: KitchenControllerBridge;
+  private readonly config: KitchenSceneConfig;
+  private readonly helmet = createHelmetMotion();
+  private readonly tracker: ReturnType<typeof createSceneTracker>;
+  private readonly triggers = createTriggerRegistry<KitchenTriggerContext>();
 
-  constructor(options: KitchenControllerOptions) {
+  constructor(private readonly options: Required<KitchenControllerOptions>) {
     super('KitchenControllerScene');
-    this.options = options;
+    this.config = options.config;
+    this.bridge = options.bridge;
+    this.tracker = createSceneTracker({
+      sceneWidth: this.config.sceneWidth,
+      sceneHeight: this.config.sceneHeight,
+      getViewport: options.getViewport
+    });
+    this.registerSceneTriggers();
   }
 
   scrollBy(delta: number) {
-    this.setTargetCameraX(this.targetCameraX + delta);
+    this.tracker.scrollBy(delta);
   }
 
   beginDrag(clientX: number) {
-    this.isDragging = true;
-    this.dragStartX = clientX;
-    this.dragCameraX = this.targetCameraX;
+    this.tracker.beginDrag(clientX);
   }
 
   dragTo(clientX: number) {
-    if (!this.isDragging) return;
-    this.setTargetCameraX(this.dragCameraX + (this.dragStartX - clientX) * 1.95);
+    this.tracker.dragTo(clientX);
   }
 
   endDrag() {
-    this.isDragging = false;
+    this.tracker.endDrag();
   }
 
   setHelmetHover(isHovered: boolean) {
-    if (this.isHelmetHovered === isHovered) return;
-
-    this.isHelmetHovered = isHovered;
-    this.helmetHoverElapsed = 0;
-    this.helmetHoverStartAngle = this.helmetAngle;
-
-    if (isHovered) {
-      this.helmetAngularVelocity = 0;
-    } else {
-      this.helmetAngularVelocity = 0.62;
-    }
+    const changed = this.helmet.setHover(isHovered);
+    if (changed) this.bridge.emit('helmet:hover', { isHovered });
   }
 
   resize() {
-    this.targetCameraX = this.clampCamera(this.targetCameraX);
-    this.cameraX = this.clampCamera(this.cameraX);
+    this.tracker.resize();
   }
 
   update(_time: number, delta: number) {
-    this.stepHelmetPendulum(delta);
-
-    const distance = this.targetCameraX - this.cameraX;
-    const easing = this.isDragging ? 0.26 : 0.13;
-    const frameScale = Math.min(delta / 16.667, 2.4);
-    const step = 1 - Math.pow(1 - easing, frameScale);
-
-    if (Math.abs(distance) < 0.08) {
-      this.cameraX = this.targetCameraX;
-    } else {
-      this.cameraX += distance * step;
-    }
-
-    this.options.onUpdate({
-      cameraX: this.cameraX,
-      targetCameraX: this.targetCameraX,
-      progress: this.getProgress(),
-      helmetRotation: this.getHelmetRotation(),
-      helmetLift: this.helmetLift,
-      activeChefId: this.getActiveChefId()
+    this.helmet.step(delta, this.time.now);
+    const trackerState = this.tracker.step(delta);
+    this.triggers.evaluate({
+      cameraX: trackerState.cameraX,
+      config: this.config,
+      metrics: trackerState.metrics
     });
+
+    const helmetState = this.helmet.getState();
+    const state: KitchenControllerState = {
+      cameraX: trackerState.cameraX,
+      targetCameraX: trackerState.targetCameraX,
+      progress: trackerState.progress,
+      helmetRotation: helmetState.rotation,
+      helmetLift: helmetState.lift,
+      activeChefId: this.activeChefId
+    };
+
+    this.bridge.updateState(state);
+    this.options.onUpdate?.(state);
   }
 
-  private setTargetCameraX(value: number) {
-    this.targetCameraX = this.clampCamera(value);
+  destroyController() {
+    this.triggers.clear();
   }
 
-  private getMetrics() {
-    const viewport = this.options.getViewport();
-    const viewWidth = Math.max(viewport.width, 1);
-    const viewHeight = Math.max(viewport.height, 1);
-    const sceneScale = viewHeight / this.options.sceneHeight;
-    const worldWidth = Math.max(viewWidth, this.options.sceneWidth * sceneScale);
-    const maxScrollX = Math.max(0, worldWidth - viewWidth);
-
-    return { viewWidth, sceneScale, maxScrollX };
-  }
-
-  private clampCamera(value: number) {
-    return Phaser.Math.Clamp(value, 0, this.getMetrics().maxScrollX);
-  }
-
-  private getProgress() {
-    const { maxScrollX } = this.getMetrics();
-    return maxScrollX > 0 ? Phaser.Math.Clamp(this.cameraX / maxScrollX, 0, 1) : 0;
-  }
-
-  private getActiveChefId() {
-    const { viewWidth, sceneScale } = this.getMetrics();
-    const chefLeft = this.options.chefX * sceneScale - this.cameraX * 1.2;
-    const chefRight = chefLeft + this.options.chefWidth * sceneScale;
-    const visibleWidth = Math.min(chefRight, viewWidth) - Math.max(chefLeft, 0);
-    const visibility = visibleWidth / Math.max(this.options.chefWidth * sceneScale, 1);
-
-    return visibility > 0.34 ? 'carlo' : undefined;
-  }
-
-  private stepHelmetPendulum(delta: number) {
-    const dt = Math.min(delta / 1000, 0.032);
-
-    if (this.isHelmetHovered) {
-      const hoverDuration = 0.32;
-      const progress = Phaser.Math.Clamp(this.helmetHoverElapsed / hoverDuration, 0, 1);
-      const falloff = Math.pow(1 - progress, 2.25);
-      const jumpArc = 4 * progress * (1 - progress);
-      const shake = Math.sin(progress * Math.PI * 5) * falloff * Phaser.Math.DegToRad(7.4);
-
-      this.helmetAngle = this.helmetHoverStartAngle * (1 - progress) + shake;
-      this.helmetLift = jumpArc * 25;
-      this.helmetAngularVelocity = 0;
-      this.helmetHoverElapsed += dt;
-
-      if (progress >= 1) {
-        this.helmetAngle = 0;
-        this.helmetLift = 0;
+  private registerSceneTriggers() {
+    this.triggers.registerTrigger({
+      id: `${this.config.chef.id}:visible`,
+      mode: 'repeat',
+      isActive: ({ cameraX, config, metrics }) =>
+        getVisibleRatio({
+          cameraX,
+          layerSpeed: config.layerSpeed.chef,
+          objectX: config.chef.x,
+          objectWidth: config.chef.width,
+          sceneScale: metrics.sceneScale,
+          viewWidth: metrics.viewWidth
+        }) > config.chef.visibleThreshold,
+      onEnter: ({ config }) => {
+        this.activeChefId = config.chef.id;
+        this.bridge.emit('chef:enter', { id: config.chef.id });
+      },
+      onExit: ({ config }) => {
+        if (this.activeChefId === config.chef.id) this.activeChefId = undefined;
+        this.bridge.emit('chef:exit', { id: config.chef.id });
       }
-
-      return;
-    }
-
-    this.helmetLift = 0;
-
-    const gravity = 1180;
-    const pendulumLength = 54;
-    const damping = 0.16;
-    const ambientForce = Math.sin(this.time.now * 0.00095) * 0.08;
-    const angularAcceleration =
-      -(gravity / pendulumLength) * Math.sin(this.helmetAngle) -
-      damping * this.helmetAngularVelocity +
-      ambientForce;
-
-    this.helmetAngularVelocity += angularAcceleration * dt;
-    this.helmetAngle += this.helmetAngularVelocity * dt;
-
-    if (Math.abs(this.helmetAngle) > Phaser.Math.DegToRad(6.4)) {
-      this.helmetAngle = Phaser.Math.Clamp(
-        this.helmetAngle,
-        Phaser.Math.DegToRad(-6.4),
-        Phaser.Math.DegToRad(6.4)
-      );
-      this.helmetAngularVelocity *= 0.28;
-    }
-  }
-
-  private getHelmetRotation() {
-    if (this.isHelmetHovered) {
-      return Phaser.Math.RadToDeg(this.helmetAngle);
-    }
-
-    const maxIdleAngle = Phaser.Math.DegToRad(6.4);
-    const normalizedAngle = Phaser.Math.Clamp(this.helmetAngle / maxIdleAngle, -1, 1);
-    const easedAngle =
-      Math.sign(normalizedAngle) * Math.pow(Math.abs(normalizedAngle), 0.86) * maxIdleAngle;
-
-    return Phaser.Math.RadToDeg(easedAngle);
+    });
   }
 }
 
 export function mountKitchenController(options: KitchenControllerOptions) {
-  const scene = new KitchenControllerScene(options);
-  const game = new Phaser.Game({
-    type: Phaser.HEADLESS,
-    width: 1,
-    height: 1,
-    scene,
-    banner: false,
-    audio: { noAudio: true }
+  const bridge = options.bridge ?? setupSceneBridge<KitchenControllerState, KitchenControllerEvents>(
+    initialKitchenControllerState
+  );
+  const scene = new KitchenControllerScene({
+    bridge,
+    config: options.config ?? kitchenSceneConfig,
+    getViewport: options.getViewport,
+    onUpdate: options.onUpdate ?? (() => {})
   });
+  const runtime = mountHeadlessPhaserScene(scene);
 
   return {
-    scrollBy: (delta: number) => scene.scrollBy(delta),
     beginDrag: (clientX: number) => scene.beginDrag(clientX),
+    bridge,
+    destroy: () => {
+      scene.destroyController();
+      runtime.destroy();
+    },
     dragTo: (clientX: number) => scene.dragTo(clientX),
     endDrag: () => scene.endDrag(),
-    setHelmetHover: (isHovered: boolean) => scene.setHelmetHover(isHovered),
     resize: () => scene.resize(),
-    destroy: () => game.destroy(true)
+    scrollBy: (delta: number) => scene.scrollBy(delta),
+    setHelmetHover: (isHovered: boolean) => scene.setHelmetHover(isHovered)
   };
 }

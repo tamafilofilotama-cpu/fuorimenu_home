@@ -2,6 +2,10 @@
   import { goto } from '$app/navigation';
   import VolumeMaxIcon from '$lib/VolumeMaxIcon.svelte';
   import VolumeOffIcon from '$lib/VolumeOffIcon.svelte';
+  import { createAnimationCueManager } from '$lib/scene/animation-cues';
+  import { createAudioCueManager, type AudioCueConfig } from '$lib/scene/audio-cues';
+  import { clamp, deg, ease, fixed, px, type CssVars, vh, vw } from '$lib/scene/math';
+  import { createSceneResourceScope } from '$lib/scene/resources';
   import { gsap } from 'gsap';
   import { onMount, tick } from 'svelte';
 
@@ -24,23 +28,15 @@
   let isAudioGateVisible = $state(true);
   let isAudioGateOpening = $state(false);
   let activeAudioGateChoice = $state<'on' | 'off' | undefined>();
-  let introRevealTween: gsap.core.Tween | undefined;
   let isAudioMuted = $state(true);
   let audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
   let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
   let aboutScreenEl = $state<HTMLElement>();
-  let aboutTween: gsap.core.Tween | undefined;
-  let mountFadeTween: gsap.core.Tween | undefined;
-  let mountFadeDelay: gsap.core.Tween | undefined;
   let flowTween: gsap.core.Tween | undefined;
   let cardEnterTween: gsap.core.Timeline | undefined;
-  const audioFadeTweens: Partial<Record<AudioRole, gsap.core.Tween>> = {};
-  const audioLoopFrames: Partial<Record<AudioRole, number>> = {};
-  const roleAudioSources: Partial<Record<AudioRole, MediaElementAudioSourceNode>> = {};
-  const roleAudioGains: Partial<Record<AudioRole, GainNode>> = {};
-  let roleAudioContext: AudioContext | undefined;
-  let audioUnlocked = false;
+  const animations = createAnimationCueManager();
+  const sceneResources = createSceneResourceScope();
 
   const audioRoles = ['ufficio', 'cucina', 'servizio'] as const;
   type AudioRole = (typeof audioRoles)[number];
@@ -54,19 +50,7 @@
     href?: string;
   };
 
-  const roleAudio: Record<
-    AudioRole,
-    {
-      src: string;
-      startTime: number;
-      maxTime: number;
-      targetVolume: number;
-      outputGain?: number;
-      fadeIn?: boolean;
-      fadeInDuration?: number;
-      el?: HTMLAudioElement;
-    }
-  > = {
+  const roleAudio: Record<AudioRole, AudioCueConfig> = {
     ufficio: {
       src: '/sound/office.mp3',
       startTime: 0.5,
@@ -91,16 +75,6 @@
     }
   };
   const roleAudioEntries = audioRoles.map((role) => ({ role, config: roleAudio[role] }));
-
-  const clamp = (v: number, min = 0, max = 1) => Math.min(Math.max(v, min), max);
-  const ease  = (v: number) => v * v * (3 - 2 * v);
-  const fixed = (v: number, digits = 3) => v.toFixed(digits);
-  const px = (v: number, digits = 1) => `${v.toFixed(digits)}px`;
-  const deg = (v: number, digits = 2) => `${v.toFixed(digits)}deg`;
-  const vh = (v: number, digits = 1) => `${v.toFixed(digits)}vh`;
-  const vw = (v: number, digits = 2) => `${v.toFixed(digits)}vw`;
-
-  type CssVars = Record<`--${string}`, string | number>;
   type LetterStyleOptions = { start: number; end: number; windowSize: number; invert: boolean; dy: number };
 
   function setCssVars(el: HTMLElement | undefined, vars: CssVars) {
@@ -155,7 +129,7 @@
     return groups;
   }
 
-  const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina olimpica...';
+  const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina delle olimpiadi...';
   const nextMessage     = 'Incontra le persone che hanno reso tutto questo possibile.';
   const audioGateMessage = "Attiva l'audio per un'esperienza più immersiva";
   const brandWord       = 'Retrogusto';
@@ -197,6 +171,10 @@
     closeEase: 'power3.in'
   };
   const audioFadeMotion = { duration: 0.52, ease: 'power2.inOut' };
+  const audioCues = createAudioCueManager<AudioRole>({ fade: audioFadeMotion });
+  audioRoles.forEach((role) => {
+    audioCues.registerAudioCue(role, roleAudio[role]);
+  });
   const mountFadeMotion = { delay: 0.4, duration: 2, ease: 'power2.out' };
   const flowMotion = {
     duration: 0.82,
@@ -764,13 +742,16 @@
     gsap.set(bg, { opacity: 1, filter: 'grayscale(1) opacity(0.42)', scale: 1.04 });
     gsap.set([copy, hoverPanel, person], { opacity: 0 });
 
-    cardEnterTween = gsap.timeline({
-      defaults: { ease: 'power3.inOut' },
-      onComplete: () => {
-        sessionStorage.setItem('kitchen-card-transition', '1');
-        void goto(item.href as string);
-      }
-    });
+    cardEnterTween = animations.registerAnimationCue(
+      'cardEnter',
+      gsap.timeline({
+        defaults: { ease: 'power3.inOut' },
+        onComplete: () => {
+          sessionStorage.setItem('kitchen-card-transition', '1');
+          void goto(item.href as string);
+        }
+      })
+    );
 
     cardEnterTween
       .to(pageFade, { opacity: 1, duration: 0.16, ease: 'power2.out' }, 0)
@@ -807,18 +788,21 @@
   }
 
   function revealIntroLetters() {
-    introRevealTween?.kill();
+    animations.kill('introReveal');
     gsap.set(introLetters, {
       '--intro-letter-reveal': 0,
       '--intro-reveal-y': '12px'
     });
-    introRevealTween = gsap.to(introLetters, {
-      '--intro-letter-reveal': 1,
-      '--intro-reveal-y': '0px',
-      duration: 0.64,
-      ease: 'power3.out',
-      stagger: 0.028
-    });
+    animations.registerAnimationCue(
+      'introReveal',
+      gsap.to(introLetters, {
+        '--intro-letter-reveal': 1,
+        '--intro-reveal-y': '0px',
+        duration: 0.64,
+        ease: 'power3.out',
+        stagger: 0.028
+      })
+    );
   }
 
   function reloadHome(event: MouseEvent) {
@@ -831,20 +815,24 @@
     }
   }
 
+  function consumeRequestedViewParam(requestedView: string | null) {
+    if (requestedView !== 'brand' && requestedView !== 'cards') return;
+    window.history.replaceState(window.history.state, document.title, '/');
+  }
+
   async function openAbout() {
-    aboutTween?.kill();
+    animations.kill('about');
     isAboutOpen = true;
     await tick();
     if (!aboutScreenEl) return;
-    aboutTween = gsap.fromTo(
-      aboutScreenEl,
-      aboutClosedVars,
-      {
+    animations.registerAnimationCue(
+      'about',
+      gsap.fromTo(aboutScreenEl, aboutClosedVars, {
         ...aboutOpenVars,
         duration: aboutMotion.openDuration,
         ease: aboutMotion.openEase,
         clearProps: 'transform'
-      }
+      })
     );
   }
 
@@ -853,89 +841,27 @@
       isAboutOpen = false;
       return;
     }
-    aboutTween?.kill();
-    aboutTween = gsap.to(aboutScreenEl, {
-      ...aboutClosedVars,
-      duration: aboutMotion.closeDuration,
-      ease: aboutMotion.closeEase,
-      onComplete: () => {
-        isAboutOpen = false;
-      }
-    });
-  }
-
-  function cancelAudioFrame(store: Partial<Record<AudioRole, number>>, role: AudioRole) {
-    const frame = store[role];
-    if (frame) cancelAnimationFrame(frame);
-    store[role] = 0;
-  }
-
-  function fadeAudio(role: AudioRole, targetVolume: number, afterFade?: () => void, duration = audioFadeMotion.duration) {
-    const config = roleAudio[role];
-    const audio = config.el;
-    if (!audio) return;
-    audioFadeTweens[role]?.kill();
-    audioFadeTweens[role] = gsap.to(audio, {
-      volume: targetVolume,
-      ...audioFadeMotion,
-      duration,
-      overwrite: true,
-      onComplete: () => {
-        audio.volume = targetVolume;
-        audioFadeTweens[role] = undefined;
-        afterFade?.();
-      }
-    });
-  }
-
-  function setupRoleAudioOutput(role: AudioRole) {
-    const config = roleAudio[role];
-    const audio = config.el;
-    if (!audio || roleAudioSources[role]) return;
-
-    roleAudioContext ??= new AudioContext();
-    const source = roleAudioContext.createMediaElementSource(audio);
-    const gain = roleAudioContext.createGain();
-    gain.gain.value = config.outputGain ?? 1;
-    source.connect(gain);
-    gain.connect(roleAudioContext.destination);
-    roleAudioSources[role] = source;
-    roleAudioGains[role] = gain;
+    animations.kill('about');
+    animations.registerAnimationCue(
+      'about',
+      gsap.to(aboutScreenEl, {
+        ...aboutClosedVars,
+        duration: aboutMotion.closeDuration,
+        ease: aboutMotion.closeEase,
+        onComplete: () => {
+          isAboutOpen = false;
+        }
+      })
+    );
   }
 
   async function startRoleAudio(role: AudioRole) {
-    const config = roleAudio[role];
-    const audio = config.el;
-    if (!audio || isAudioMuted) return;
-
-    audioFadeTweens[role]?.kill();
-    audioFadeTweens[role] = undefined;
-    cancelAudioFrame(audioLoopFrames, role);
-    audio.loop = false;
-    audio.pause();
-    audio.currentTime = config.startTime;
-    setupRoleAudioOutput(role);
-    await roleAudioContext?.resume();
-    audio.volume = config.fadeIn === false ? config.targetVolume : 0;
-
-    try {
-      await audio.play();
-      if (config.fadeIn !== false) fadeAudio(role, config.targetVolume, undefined, config.fadeInDuration);
-    } catch {
-      // Browsers may block hover audio before the first user gesture.
-    }
+    if (isAudioMuted) return;
+    await audioCues.play(role);
   }
 
   function stopRoleAudio(role: AudioRole) {
-    const config = roleAudio[role];
-    const audio = config.el;
-    if (!audio) return;
-
-    cancelAudioFrame(audioLoopFrames, role);
-    fadeAudio(role, 0, () => {
-      audio.pause();
-      audio.currentTime = config.startTime;
-    });
+    audioCues.stop(role);
   }
 
   function toggleAudioMuted() {
@@ -951,46 +877,18 @@
     activeAudioGateChoice = choice;
     isAudioGateOpening = true;
     if (!nextMuted) await unlockAmbientAudio();
-    window.setTimeout(revealIntroLetters, 760);
-    window.setTimeout(() => {
+    sceneResources.addTimeout(revealIntroLetters, 760);
+    sceneResources.addTimeout(() => {
       isAudioGateVisible = false;
     }, 1280);
   }
 
   async function unlockAmbientAudio() {
-    if (audioUnlocked) return;
-    const audios = Object.values(roleAudio).map((config) => config.el).filter(Boolean) as HTMLAudioElement[];
-    if (!audios.length) return;
-
-    try {
-      audioRoles.forEach(setupRoleAudioOutput);
-      await roleAudioContext?.resume();
-      await Promise.all(
-        audios.map(async (audio) => {
-          const previousVolume = audio.volume;
-          audio.volume = 0;
-          await audio.play();
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = previousVolume;
-        })
-      );
-      audioUnlocked = true;
-    } catch {
-      audioUnlocked = false;
-    }
+    await audioCues.unlock(audioRoles);
   }
 
   function stopAllRoleAudio() {
-    audioRoles.forEach(stopRoleAudio);
-  }
-
-  function cancelAllAudioFrames() {
-    audioRoles.forEach((role) => {
-      audioFadeTweens[role]?.kill();
-      audioFadeTweens[role] = undefined;
-      cancelAudioFrame(audioLoopFrames, role);
-    });
+    audioCues.stopAll(audioRoles);
   }
 
   // ── Unica funzione che gestisce tutto — nessun conflitto ──
@@ -1078,6 +976,7 @@
     const flowState = { value: 0 };
     let targetFlowValue = initialFlowValue;
     let isAutoScrolling = false;
+    consumeRequestedViewParam(requestedView);
     randomizeBrandLetters();
     if (shouldSkipIntro) {
       isAudioGateVisible = false;
@@ -1085,14 +984,20 @@
     }
 
     if (!shouldSkipIntro) {
-      mountFadeDelay = gsap.delayedCall(mountFadeMotion.delay, () => {
-        if (!introEl) return;
-        mountFadeTween = gsap.to(introEl, {
-          '--mount-opacity': 1,
-          duration: mountFadeMotion.duration,
-          ease: mountFadeMotion.ease
-        });
-      });
+      animations.registerAnimationCue(
+        'mountFadeDelay',
+        gsap.delayedCall(mountFadeMotion.delay, () => {
+          if (!introEl) return;
+          animations.registerAnimationCue(
+            'mountFade',
+            gsap.to(introEl, {
+              '--mount-opacity': 1,
+              duration: mountFadeMotion.duration,
+              ease: mountFadeMotion.ease
+            })
+          );
+        })
+      );
     }
 
     const applyFlowTotal = (value: number) => {
@@ -1110,32 +1015,38 @@
     const tweenFlowTo = (value: number, duration = flowMotion.duration, onComplete?: () => void) => {
       targetFlowValue = clamp(value, 0, flowTotalMax);
       isAutoScrolling = false;
-      flowTween = gsap.to(flowState, {
-        value: targetFlowValue,
-        duration,
-        ease: flowMotion.ease,
-        overwrite: true,
-        onUpdate: () => applyFlowTotal(flowState.value),
-        onComplete
-      });
+      flowTween = animations.registerAnimationCue(
+        'flow',
+        gsap.to(flowState, {
+          value: targetFlowValue,
+          duration,
+          ease: flowMotion.ease,
+          overwrite: true,
+          onUpdate: () => applyFlowTotal(flowState.value),
+          onComplete
+        })
+      );
     };
 
     const autoFlowTo = (value: number, duration: number, ease = flowMotion.autoEase) => {
       targetFlowValue = clamp(value, 0, flowTotalMax);
       isAutoScrolling = true;
-      flowTween = gsap.to(flowState, {
-        value: targetFlowValue,
-        duration,
-        ease,
-        overwrite: true,
-        onUpdate: () => applyFlowTotal(flowState.value),
-        onComplete: () => {
-          isAutoScrolling = false;
-        },
-        onInterrupt: () => {
-          isAutoScrolling = false;
-        }
-      });
+      flowTween = animations.registerAnimationCue(
+        'flow',
+        gsap.to(flowState, {
+          value: targetFlowValue,
+          duration,
+          ease,
+          overwrite: true,
+          onUpdate: () => applyFlowTotal(flowState.value),
+          onComplete: () => {
+            isAutoScrolling = false;
+          },
+          onInterrupt: () => {
+            isAutoScrolling = false;
+          }
+        })
+      );
     };
     const queueFlow = (delta: number) => {
       if (isAutoScrolling) {
@@ -1232,6 +1143,9 @@
       if (isAudioGateVisible) return;
       queueFlow(normalizeWheelDelta(e));
     };
+    const onPointerDownAudioUnlock = () => {
+      void unlockAmbientAudio();
+    };
     const onKeydown = (e: KeyboardEvent) => {
       if (isAudioGateVisible) {
         const activeEl = document.activeElement;
@@ -1239,7 +1153,7 @@
         e.preventDefault();
         return;
       }
-      unlockAmbientAudio();
+      void unlockAmbientAudio();
       const step = keyFlowSteps[e.key];
       if (step !== undefined) { e.preventDefault(); queueFlow(step); }
     };
@@ -1257,21 +1171,15 @@
         '--intro-reveal-y': '12px'
       });
     }
-    gsap.ticker.add(moveFloatingAssets);
-    window.addEventListener('wheel',   onWheel,   { passive: false });
-    window.addEventListener('keydown', onKeydown);
-    window.addEventListener('pointerdown', unlockAmbientAudio, { passive: true });
+    animations.addTicker(moveFloatingAssets);
+    sceneResources.addEventListener(window, 'wheel', onWheel as EventListener, { passive: false });
+    sceneResources.addEventListener(window, 'keydown', onKeydown as EventListener);
+    sceneResources.addEventListener(window, 'pointerdown', onPointerDownAudioUnlock, { passive: true });
     return () => {
-      gsap.ticker.remove(moveFloatingAssets);
       flowTween?.kill();
-      mountFadeDelay?.kill();
-      mountFadeTween?.kill();
-      introRevealTween?.kill();
-      aboutTween?.kill();
-      cancelAllAudioFrames();
-      window.removeEventListener('wheel',   onWheel);
-      window.removeEventListener('keydown', onKeydown);
-      window.removeEventListener('pointerdown', unlockAmbientAudio);
+      animations.destroy();
+      audioCues.destroy();
+      sceneResources.destroy();
     };
   });
 </script>
