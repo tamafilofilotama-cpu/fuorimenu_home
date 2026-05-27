@@ -24,10 +24,19 @@
   let viewportWidth = $state(0);
   let viewportHeight = $state(0);
   let cameraX = $state(0);
-  let dragStartX = 0;
-  let dragCameraX = 0;
-  let targetCameraX = 0;
-  let cameraFrame = 0;
+  let narrativeProgress = $state(0);
+  let helmetRotation = $state(0);
+  let activeChefId = $state<'carlo' | undefined>();
+  let kitchenController:
+    | {
+        scrollBy: (delta: number) => void;
+        beginDrag: (clientX: number) => void;
+        dragTo: (clientX: number) => void;
+        endDrag: () => void;
+        resize: () => void;
+        destroy: () => void;
+      }
+    | undefined;
   let isDragging = $state(false);
   let isChefBubbleOpen = $state(false);
   let isHelmetVideoOpen = $state(false);
@@ -57,43 +66,12 @@
     if (!stageEl) return;
     viewportWidth = stageEl.clientWidth;
     viewportHeight = stageEl.clientHeight;
-    targetCameraX = clamp(targetCameraX, 0, maxScrollX);
     cameraX = clamp(cameraX, 0, maxScrollX);
-    startCameraLoop();
+    kitchenController?.resize();
   }
 
   function scrollBy(delta: number) {
-    setTargetCameraX(targetCameraX + delta);
-  }
-
-  function setTargetCameraX(value: number, immediate = false) {
-    targetCameraX = clamp(value, 0, maxScrollX);
-    if (immediate) {
-      cameraX = targetCameraX;
-      return;
-    }
-
-    startCameraLoop();
-  }
-
-  function startCameraLoop() {
-    if (!cameraFrame) {
-      cameraFrame = requestAnimationFrame(updateCamera);
-    }
-  }
-
-  function updateCamera() {
-    const distance = targetCameraX - cameraX;
-    const easing = isDragging ? 0.26 : 0.13;
-
-    if (Math.abs(distance) < 0.08) {
-      cameraX = targetCameraX;
-      cameraFrame = 0;
-      return;
-    }
-
-    cameraX += distance * easing;
-    cameraFrame = requestAnimationFrame(updateCamera);
+    kitchenController?.scrollBy(delta);
   }
 
   function getLayerStyle(factor: number, bottomOffset = 0) {
@@ -138,18 +116,18 @@
 
   function onPointerDown(event: PointerEvent) {
     isDragging = true;
-    dragStartX = event.clientX;
-    dragCameraX = targetCameraX;
+    kitchenController?.beginDrag(event.clientX);
     stageEl.setPointerCapture(event.pointerId);
   }
 
   function onPointerMove(event: PointerEvent) {
     if (!isDragging) return;
-    setTargetCameraX(dragCameraX + (dragStartX - event.clientX) * 1.35);
+    kitchenController?.dragTo(event.clientX);
   }
 
   function endDrag(event: PointerEvent) {
     isDragging = false;
+    kitchenController?.endDrag();
     if (stageEl.hasPointerCapture(event.pointerId)) {
       stageEl.releasePointerCapture(event.pointerId);
     }
@@ -162,16 +140,36 @@
   }
 
   onMount(() => {
+    let destroyed = false;
     const resizeObserver = new ResizeObserver(syncViewport);
     resizeObserver.observe(stageEl);
     syncViewport();
+
+    import('$lib/phaser/kitchen-controller').then(({ mountKitchenController }) => {
+      if (destroyed) return;
+      kitchenController = mountKitchenController({
+        sceneWidth,
+        sceneHeight,
+        chefX: 1100,
+        chefWidth: 250,
+        getViewport: () => ({ width: viewportWidth, height: viewportHeight }),
+        onUpdate: (state) => {
+          cameraX = state.cameraX;
+          narrativeProgress = state.progress;
+          helmetRotation = state.helmetRotation;
+          activeChefId = state.activeChefId;
+        }
+      });
+    });
+
     requestAnimationFrame(() => {
       isSceneLoaded = true;
     });
     window.addEventListener('keydown', onKeydown);
 
     return () => {
-      if (cameraFrame) cancelAnimationFrame(cameraFrame);
+      destroyed = true;
+      kitchenController?.destroy();
       resizeObserver.disconnect();
       window.removeEventListener('keydown', onKeydown);
     };
@@ -184,6 +182,8 @@
   class:is-dragging={isDragging}
   class:is-loaded={isSceneLoaded}
   style={`--kitchen-cursor: ${cursorCss}; --kitchen-pointer-cursor: ${pointerCursorCss};`}
+  data-active-chef={activeChefId ?? ''}
+  data-narrative-progress={narrativeProgress.toFixed(3)}
   aria-label="Scena parallasse della cucina"
   onwheel={onWheel} 
   onpointerdown={onPointerDown}
@@ -249,7 +249,13 @@
         isHelmetVideoOpen = !isHelmetVideoOpen;
       }}
     >
-      <span aria-hidden="true"></span>
+      <img
+        src="/assets/cucina_helmet.svg"
+        style={`--helmet-rotation: ${helmetRotation.toFixed(3)}deg`}
+        alt=""
+        draggable="false"
+        aria-hidden="true"
+      />
     </button>
 
     {#if isHelmetVideoOpen}
@@ -436,10 +442,16 @@
     pointer-events: auto;
   }
 
-  .helmet-hotspot span {
+  .helmet-hotspot img {
     display: block;
     width: 100%;
     height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    transform-origin: 78% 9%;
+    transform: rotate(var(--helmet-rotation, 0deg));
+    will-change: transform;
   }
 
   .helmet-hotspot:focus-visible {
@@ -512,7 +524,8 @@
     }
 
     .reveal-object,
-    .scene-title span {
+    .scene-title span,
+    .helmet-hotspot img {
       opacity: 1;
       transform: none;
       animation: none;

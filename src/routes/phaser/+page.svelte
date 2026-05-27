@@ -41,7 +41,7 @@
 
 <main class="game-page">
   <header class="kitchen-topbar" aria-label="Navigazione cucina">
-    <a class="logo" href="/" aria-label="Retrogusto home">RG</a>
+    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Retrogusto">RG</a>
     <a class="home-link" href="/?view=cards" aria-label="Torna alle card">
       <span class="close-icon" aria-hidden="true"></span>
     </a>

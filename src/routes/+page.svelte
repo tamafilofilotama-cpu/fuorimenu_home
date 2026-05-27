@@ -244,7 +244,7 @@
   };
   const reelMotion = {
     stagger: 0.085,
-    startOffset: 0.04,
+    startOffset: 0,
     duration: 0.35,
     zStart: -980,
     zRange: 1850,
@@ -823,10 +823,11 @@
 
   function reloadHome(event: MouseEvent) {
     event.preventDefault();
-    if (window.location.pathname === '/') {
+    const brandUrl = '/?view=brand';
+    if (window.location.pathname === '/' && window.location.search === '?view=brand') {
       window.location.reload();
     } else {
-      window.location.assign('/');
+      window.location.assign(brandUrl);
     }
   }
 
@@ -1069,17 +1070,21 @@
   }
 
   onMount(() => {
-    const shouldOpenCards = new URLSearchParams(window.location.search).get('view') === 'cards';
+    const requestedView = new URLSearchParams(window.location.search).get('view');
+    const shouldOpenCards = requestedView === 'cards';
+    const shouldOpenBrand = requestedView === 'brand';
+    const shouldSkipIntro = shouldOpenCards || shouldOpenBrand;
+    const initialFlowValue = shouldOpenCards ? rolesScrollVisible : shouldOpenBrand ? brandCopyScrollEnd : 0;
     const flowState = { value: 0 };
-    let targetFlowValue = shouldOpenCards ? rolesScrollVisible : 0;
+    let targetFlowValue = initialFlowValue;
     let isAutoScrolling = false;
     randomizeBrandLetters();
-    if (shouldOpenCards) {
+    if (shouldSkipIntro) {
       isAudioGateVisible = false;
-      flowState.value = rolesScrollVisible;
+      flowState.value = initialFlowValue;
     }
 
-    if (!shouldOpenCards) {
+    if (!shouldSkipIntro) {
       mountFadeDelay = gsap.delayedCall(mountFadeMotion.delay, () => {
         if (!introEl) return;
         mountFadeTween = gsap.to(introEl, {
@@ -1200,7 +1205,7 @@
       const settleReelExit = () => {
         if (!isMovingThroughReels || nextTarget >= 1 || nextTarget <= reelMotion.autoReturnFlowTarget) return;
         if (delta > 0 && nextTarget >= reelMotion.autoExitFlowStart) {
-          autoFlowTo(1, reelMotion.autoSettleDuration);
+          autoFlowTo(copyScrollEnd, flowMotion.autoStepDuration);
         } else if (delta < 0 && nextTarget >= reelMotion.autoExitFlowStart) {
           autoFlowTo(reelMotion.autoReturnFlowTarget, reelMotion.autoSettleDuration);
         }
@@ -1240,7 +1245,13 @@
     };
 
     applyFlowTotal(flowState.value);
-    if (!shouldOpenCards) {
+    if (shouldSkipIntro) {
+      gsap.set(introEl, { '--mount-opacity': 1 });
+      gsap.set(introLetters, {
+        '--intro-letter-reveal': 1,
+        '--intro-reveal-y': '0px'
+      });
+    } else {
       gsap.set(introLetters, {
         '--intro-letter-reveal': 0,
         '--intro-reveal-y': '12px'
@@ -1432,7 +1443,7 @@
 
 <section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Retrogusto">
   <header class="roles-top-bar" aria-label="Navigazione principale">
-    <a class="logo" href="/" aria-label="Retrogusto home" onclick={reloadHome}>RG</a>
+    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Retrogusto" onclick={reloadHome}>RG</a>
     <span class="top-bar-audio top-bar-audio-slot" aria-hidden="true"></span>
     <button
       class="icon-button top-bar-menu"
@@ -1519,7 +1530,7 @@
     data-node-id="256:1827"
   >
     <header class="about-top-bar" aria-label="Navigazione about">
-      <a class="logo about-logo" href="/" aria-label="Retrogusto home" onclick={reloadHome}>RG</a>
+      <a class="logo about-logo" href="/?view=brand" aria-label="Vai al brand screen Retrogusto" onclick={reloadHome}>RG</a>
       <button
         class="icon-button top-bar-audio about-audio"
         type="button"
@@ -1882,6 +1893,10 @@
   .about-audio,
   .about-close {
     color: var(--color-text-inverse);
+  }
+
+  .about-logo {
+    font-weight: 400;
   }
 
   .about-logo:hover,
