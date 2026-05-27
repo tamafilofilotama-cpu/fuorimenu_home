@@ -4,6 +4,7 @@
   const sceneWidth = 8192;
   const sceneHeight = 1211;
   const assetWidth = 8192;
+  const foregroundSvgWidth = 5929;
   const floorHeight = 225;
   const floorTileWidth = 224;
   const layerSpeed = {
@@ -29,7 +30,21 @@
   let cameraFrame = 0;
   let isDragging = $state(false);
   let isChefBubbleOpen = $state(false);
+  let isHelmetVideoOpen = $state(false);
   let isSceneLoaded = $state(false);
+
+  const helmetHotspot = {
+    x: 1998,
+    y: 436,
+    width: 116,
+    height: 104
+  };
+  const helmetVideoPlaceholder = {
+    x: 2158,
+    y: 292,
+    width: 430,
+    height: 248
+  };
 
   const sceneScale = $derived(viewportHeight ? viewportHeight / sceneHeight : 1);
   const worldWidth = $derived(Math.max(viewportWidth, sceneWidth * sceneScale));
@@ -102,6 +117,17 @@
       `left: ${px(1100 * sceneScale - cameraX * layerSpeed.chef)}`,
       `bottom: ${px(viewportHeight / 20)}`,
       `width: ${px(250 * sceneScale)}`
+    ].join(';');
+  }
+
+  function getForegroundRectStyle(rect: { x: number; y: number; width: number; height: number }) {
+    const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
+
+    return [
+      `left: ${px(rect.x * foregroundScale)}`,
+      `top: ${px(rect.y * foregroundScale)}`,
+      `width: ${px(rect.width * foregroundScale)}`,
+      `height: ${px(rect.height * foregroundScale)}`
     ].join(';');
   }
 
@@ -213,6 +239,28 @@
     style={`${getLayerStyle(layerSpeed.foreground, -180)}; --reveal-delay: 470ms;`}
   >
     <img src="/assets/cucina_layer1a.svg" alt="" draggable="false" />
+    <button
+      class="helmet-hotspot"
+      style={getForegroundRectStyle(helmetHotspot)}
+      type="button"
+      aria-label="Apri placeholder video del casco"
+      onpointerdown={(event) => event.stopPropagation()}
+      onclick={() => {
+        isHelmetVideoOpen = !isHelmetVideoOpen;
+      }}
+    >
+      <span aria-hidden="true"></span>
+    </button>
+
+    {#if isHelmetVideoOpen}
+      <div
+        class="helmet-video-placeholder"
+        style={getForegroundRectStyle(helmetVideoPlaceholder)}
+        role="region"
+        aria-label="Placeholder video casco"
+        onpointerdown={(event) => event.stopPropagation()}
+      ></div>
+    {/if}
   </div>
 </section>
 
@@ -375,6 +423,39 @@
 
   .foreground-layer {
     z-index: 6;
+  }
+
+  .helmet-hotspot {
+    position: absolute;
+    z-index: 2;
+    display: grid;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: var(--kitchen-pointer-cursor);
+    pointer-events: auto;
+  }
+
+  .helmet-hotspot span {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .helmet-hotspot:focus-visible {
+    outline: none;
+  }
+
+  .helmet-video-placeholder {
+    position: absolute;
+    z-index: 3;
+    box-sizing: border-box;
+    display: grid;
+    padding: 18px;
+    border: 3px solid #2a4385;
+    border-radius: var(--radius-s);
+    background: var(--color-surface-page);
+    pointer-events: auto;
   }
 
   @keyframes layerReveal {
