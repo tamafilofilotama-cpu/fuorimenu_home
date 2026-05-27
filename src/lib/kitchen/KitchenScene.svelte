@@ -5,6 +5,8 @@
   const sceneHeight = 1211;
   const assetWidth = 8192;
   const foregroundSvgWidth = 5929;
+  const foregroundSvgHeight = 1022;
+  const foregroundBottomOffset = -180;
   const floorHeight = 225;
   const floorTileWidth = 224;
   const layerSpeed = {
@@ -33,6 +35,7 @@
         beginDrag: (clientX: number) => void;
         dragTo: (clientX: number) => void;
         endDrag: () => void;
+        setHelmetHover: (isHovered: boolean) => void;
         resize: () => void;
         destroy: () => void;
       }
@@ -44,9 +47,23 @@
 
   const helmetHotspot = {
     x: 1998,
+    y: 404,
+    width: 116,
+    height: 104
+  };
+  const helmetSource = {
+    x: 1998,
     y: 436,
     width: 116,
     height: 104
+  };
+  const helmetPivot = {
+    x: helmetSource.x + helmetSource.width * 0.78,
+    y: helmetSource.y + helmetSource.height * 0.09
+  };
+  const helmetOffset = {
+    x: helmetHotspot.x - helmetSource.x,
+    y: helmetHotspot.y - helmetSource.y
   };
   const helmetVideoPlaceholder = {
     x: 2158,
@@ -82,6 +99,17 @@
     ].join(';');
   }
 
+  function getForegroundLayerStyle() {
+    const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
+
+    return [
+      `width: ${px(assetWidth * sceneScale)}`,
+      `height: ${px(foregroundSvgHeight * foregroundScale)}`,
+      `bottom: ${px(foregroundBottomOffset * sceneScale)}`,
+      `transform: translate3d(${px(-cameraX * layerSpeed.foreground)}, 0, 0)`
+    ].join(';');
+  }
+
   function getTitleStyle() {
     return [
       `left: ${px(92 * sceneScale - cameraX * layerSpeed.title)}`,
@@ -95,17 +123,6 @@
       `left: ${px(1100 * sceneScale - cameraX * layerSpeed.chef)}`,
       `bottom: ${px(viewportHeight / 20)}`,
       `width: ${px(250 * sceneScale)}`
-    ].join(';');
-  }
-
-  function getForegroundRectStyle(rect: { x: number; y: number; width: number; height: number }) {
-    const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
-
-    return [
-      `left: ${px(rect.x * foregroundScale)}`,
-      `top: ${px(rect.y * foregroundScale)}`,
-      `width: ${px(rect.width * foregroundScale)}`,
-      `height: ${px(rect.height * foregroundScale)}`
     ].join(';');
   }
 
@@ -236,38 +253,97 @@
 
   <div
     class="parallax-layer reveal-layer foreground-layer"
-    style={`${getLayerStyle(layerSpeed.foreground, -180)}; --reveal-delay: 470ms;`}
+    style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
   >
     <img src="/assets/cucina_layer1a.svg" alt="" draggable="false" />
-    <button
-      class="helmet-hotspot"
-      style={getForegroundRectStyle(helmetHotspot)}
-      type="button"
-      aria-label="Apri placeholder video del casco"
-      onpointerdown={(event) => event.stopPropagation()}
-      onclick={() => {
-        isHelmetVideoOpen = !isHelmetVideoOpen;
-      }}
+  </div>
+
+  <svg
+    class="helmet-layer reveal-layer"
+    style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
+    viewBox={`0 0 ${foregroundSvgWidth} ${foregroundSvgHeight}`}
+    aria-label="Casco interattivo"
+  >
+    <g
+      class="helmet-hitbox"
+      transform={`translate(${helmetOffset.x} ${helmetOffset.y})`}
     >
-      <img
-        src="/assets/cucina_helmet.svg"
-        style={`--helmet-rotation: ${helmetRotation.toFixed(3)}deg`}
-        alt=""
-        draggable="false"
+      <g
+        class="helmet-art"
+        transform={`rotate(${helmetRotation.toFixed(3)} ${helmetPivot.x.toFixed(2)} ${helmetPivot.y.toFixed(2)})`}
         aria-hidden="true"
+      >
+        <path
+          d="M2089.16 508.428C2089.16 508.428 2106.4 451.773 2051.95 441.457C2051.95 441.457 2021.37 434.187 2005.72 469.447C2005.15 470.754 2004.16 471.827 2002.92 472.525C2000.99 473.601 1998.57 475.947 2001.15 480.372C2005.05 487.046 2045.34 526.851 2088.79 508.774L2089.16 508.428Z"
+          fill="var(--color-surface-page)"
+          stroke="#FF1DA1"
+          stroke-width="2"
+          stroke-miterlimit="10"
+        />
+        <path
+          d="M2090.16 509.243C2090.16 509.243 2108.45 528.975 2089.62 532.139C2076.4 534.362 2063.15 531.895 2056.44 530.231C2053.48 529.498 2050.66 528.338 2048.04 526.776C2044.17 524.47 2042.81 523.889 2035.89 517.022C2030.86 512.023 2024.42 500.643 2024.42 500.643C2035.61 507.376 2045.51 510.352 2052.17 511.8C2054.6 512.332 2058.17 513.091 2062.9 513.396C2074.68 514.156 2084.23 511.475 2090.16 509.251L2090.16 509.243Z"
+          fill="var(--color-surface-page)"
+          stroke="#FF1DA1"
+          stroke-width="2"
+          stroke-miterlimit="10"
+        />
+        <path
+          d="M2058.1 499.644C2058.1 499.644 2067.92 455.27 2034.27 442.355"
+          fill="var(--color-surface-page)"
+          stroke="#FF1DA1"
+          stroke-width="2"
+          stroke-miterlimit="10"
+          stroke-linecap="round"
+        />
+        <path
+          d="M2074.69 499.96C2074.69 499.96 2083.47 455.65 2045.68 441.048"
+          fill="var(--color-surface-page)"
+          stroke="#FF1DA1"
+          stroke-width="2"
+          stroke-miterlimit="10"
+          stroke-linecap="round"
+        />
+      </g>
+      <rect
+        class="helmet-hitarea"
+        role="button"
+        tabindex="0"
+        aria-label="Apri placeholder video del casco"
+        x={helmetSource.x - 16}
+        y={helmetSource.y - 16}
+        width={helmetSource.width + 32}
+        height={helmetSource.height + 32}
+        rx="8"
+        onpointerdown={(event) => event.stopPropagation()}
+        onpointerenter={() => {
+          kitchenController?.setHelmetHover(true);
+        }}
+        onpointerleave={() => {
+          kitchenController?.setHelmetHover(false);
+        }}
+        onclick={() => {
+          isHelmetVideoOpen = !isHelmetVideoOpen;
+        }}
+        onkeydown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          isHelmetVideoOpen = !isHelmetVideoOpen;
+        }}
       />
-    </button>
+    </g>
 
     {#if isHelmetVideoOpen}
-      <div
+      <rect
         class="helmet-video-placeholder"
-        style={getForegroundRectStyle(helmetVideoPlaceholder)}
-        role="region"
+        x={helmetVideoPlaceholder.x}
+        y={helmetVideoPlaceholder.y}
+        width={helmetVideoPlaceholder.width}
+        height={helmetVideoPlaceholder.height}
+        rx="8"
         aria-label="Placeholder video casco"
-        onpointerdown={(event) => event.stopPropagation()}
-      ></div>
+      />
     {/if}
-  </div>
+  </svg>
 </section>
 
 <style>
@@ -293,7 +369,8 @@
   .parallax-layer,
   .floor-layer,
   .scene-title,
-  .chef-button {
+  .chef-button,
+  .helmet-layer {
     position: absolute;
     left: 0;
     will-change: transform;
@@ -431,42 +508,36 @@
     z-index: 6;
   }
 
-  .helmet-hotspot {
-    position: absolute;
-    z-index: 2;
-    display: grid;
-    padding: 0;
-    border: 0;
-    background: transparent;
+  .helmet-layer {
+    z-index: 7;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .helmet-hitbox {
     cursor: var(--kitchen-pointer-cursor);
     pointer-events: auto;
   }
 
-  .helmet-hotspot img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+  .helmet-art {
     pointer-events: none;
     user-select: none;
-    transform-origin: 78% 9%;
-    transform: rotate(var(--helmet-rotation, 0deg));
-    will-change: transform;
   }
 
-  .helmet-hotspot:focus-visible {
+  .helmet-hitarea {
+    fill: transparent;
+    cursor: var(--kitchen-pointer-cursor);
+    pointer-events: all;
+  }
+
+  .helmet-hitarea:focus-visible {
     outline: none;
   }
 
   .helmet-video-placeholder {
-    position: absolute;
-    z-index: 3;
-    box-sizing: border-box;
-    display: grid;
-    padding: 18px;
-    border: 3px solid #2a4385;
-    border-radius: var(--radius-s);
-    background: var(--color-surface-page);
+    fill: var(--color-surface-page);
+    stroke: #2a4385;
+    stroke-width: 3;
     pointer-events: auto;
   }
 
@@ -524,8 +595,7 @@
     }
 
     .reveal-object,
-    .scene-title span,
-    .helmet-hotspot img {
+    .scene-title span {
       opacity: 1;
       transform: none;
       animation: none;
