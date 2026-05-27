@@ -10,6 +10,7 @@ export type KitchenControllerState = {
   targetCameraX: number;
   progress: number;
   helmetRotation: number;
+  helmetLift: number;
   activeChefId: 'carlo' | undefined;
 };
 
@@ -27,8 +28,9 @@ class KitchenControllerScene extends Phaser.Scene {
   private targetCameraX = 0;
   private dragStartX = 0;
   private dragCameraX = 0;
-  private helmetAngle = Phaser.Math.DegToRad(2.4);
-  private helmetAngularVelocity = 0.6;
+  private helmetAngle = Phaser.Math.DegToRad(5.2);
+  private helmetAngularVelocity = 0.38;
+  private helmetLift = 0;
   private helmetHoverStartAngle = 0;
   private helmetHoverElapsed = 0;
   private isHelmetHovered = false;
@@ -97,6 +99,7 @@ class KitchenControllerScene extends Phaser.Scene {
       targetCameraX: this.targetCameraX,
       progress: this.getProgress(),
       helmetRotation: this.getHelmetRotation(),
+      helmetLift: this.helmetLift,
       activeChefId: this.getActiveChefId()
     });
   }
@@ -142,23 +145,28 @@ class KitchenControllerScene extends Phaser.Scene {
       const hoverDuration = 0.32;
       const progress = Phaser.Math.Clamp(this.helmetHoverElapsed / hoverDuration, 0, 1);
       const falloff = Math.pow(1 - progress, 2.25);
-      const shake = Math.sin(progress * Math.PI * 5) * falloff * Phaser.Math.DegToRad(3.2);
+      const jumpArc = 4 * progress * (1 - progress);
+      const shake = Math.sin(progress * Math.PI * 5) * falloff * Phaser.Math.DegToRad(7.4);
 
       this.helmetAngle = this.helmetHoverStartAngle * (1 - progress) + shake;
+      this.helmetLift = jumpArc * 25;
       this.helmetAngularVelocity = 0;
       this.helmetHoverElapsed += dt;
 
       if (progress >= 1) {
         this.helmetAngle = 0;
+        this.helmetLift = 0;
       }
 
       return;
     }
 
-    const gravity = 1500;
-    const pendulumLength = 22;
-    const damping = 0.34;
-    const ambientForce = Math.sin(this.time.now * 0.00135) * 0.045;
+    this.helmetLift = 0;
+
+    const gravity = 1180;
+    const pendulumLength = 54;
+    const damping = 0.16;
+    const ambientForce = Math.sin(this.time.now * 0.00095) * 0.08;
     const angularAcceleration =
       -(gravity / pendulumLength) * Math.sin(this.helmetAngle) -
       damping * this.helmetAngularVelocity +
@@ -167,18 +175,27 @@ class KitchenControllerScene extends Phaser.Scene {
     this.helmetAngularVelocity += angularAcceleration * dt;
     this.helmetAngle += this.helmetAngularVelocity * dt;
 
-    if (Math.abs(this.helmetAngle) > Phaser.Math.DegToRad(2.8)) {
+    if (Math.abs(this.helmetAngle) > Phaser.Math.DegToRad(6.4)) {
       this.helmetAngle = Phaser.Math.Clamp(
         this.helmetAngle,
-        Phaser.Math.DegToRad(-2.8),
-        Phaser.Math.DegToRad(2.8)
+        Phaser.Math.DegToRad(-6.4),
+        Phaser.Math.DegToRad(6.4)
       );
-      this.helmetAngularVelocity *= 0.42;
+      this.helmetAngularVelocity *= 0.28;
     }
   }
 
   private getHelmetRotation() {
-    return Phaser.Math.RadToDeg(this.helmetAngle);
+    if (this.isHelmetHovered) {
+      return Phaser.Math.RadToDeg(this.helmetAngle);
+    }
+
+    const maxIdleAngle = Phaser.Math.DegToRad(6.4);
+    const normalizedAngle = Phaser.Math.Clamp(this.helmetAngle / maxIdleAngle, -1, 1);
+    const easedAngle =
+      Math.sign(normalizedAngle) * Math.pow(Math.abs(normalizedAngle), 0.86) * maxIdleAngle;
+
+    return Phaser.Math.RadToDeg(easedAngle);
   }
 }
 

@@ -9,6 +9,8 @@
   const foregroundBottomOffset = -180;
   const floorHeight = 225;
   const floorTileWidth = 224;
+  const chefX = 1390;
+  const chefWidth = 300;
   const layerSpeed = {
     background: 0.38,
     middle: 0.78,
@@ -28,6 +30,7 @@
   let cameraX = $state(0);
   let narrativeProgress = $state(0);
   let helmetRotation = $state(0);
+  let helmetLift = $state(0);
   let activeChefId = $state<'carlo' | undefined>();
   let kitchenController:
     | {
@@ -120,9 +123,9 @@
 
   function getChefStyle() {
     return [
-      `left: ${px(1100 * sceneScale - cameraX * layerSpeed.chef)}`,
+      `left: ${px(chefX * sceneScale - cameraX * layerSpeed.chef)}`,
       `bottom: ${px(viewportHeight / 20)}`,
-      `width: ${px(250 * sceneScale)}`
+      `width: ${px(chefWidth * sceneScale)}`
     ].join(';');
   }
 
@@ -167,13 +170,14 @@
       kitchenController = mountKitchenController({
         sceneWidth,
         sceneHeight,
-        chefX: 1100,
-        chefWidth: 250,
+        chefX,
+        chefWidth,
         getViewport: () => ({ width: viewportWidth, height: viewportHeight }),
         onUpdate: (state) => {
           cameraX = state.cameraX;
           narrativeProgress = state.progress;
           helmetRotation = state.helmetRotation;
+          helmetLift = state.helmetLift;
           activeChefId = state.activeChefId;
         }
       });
@@ -266,7 +270,7 @@
   >
     <g
       class="helmet-hitbox"
-      transform={`translate(${helmetOffset.x} ${helmetOffset.y})`}
+      transform={`translate(${helmetOffset.x} ${(helmetOffset.y - helmetLift).toFixed(3)})`}
     >
       <g
         class="helmet-art"
@@ -526,10 +530,14 @@
 
   .helmet-hitarea {
     fill: transparent;
+    stroke: transparent;
+    outline: none;
     cursor: var(--kitchen-pointer-cursor);
     pointer-events: all;
+    -webkit-tap-highlight-color: transparent;
   }
 
+  .helmet-hitarea:focus,
   .helmet-hitarea:focus-visible {
     outline: none;
   }
