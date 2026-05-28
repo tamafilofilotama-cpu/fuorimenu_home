@@ -30,18 +30,18 @@
 </script>
 
 <svelte:head>
-  <title>Cucina | Retrogusto</title>
+  <title>Cucina | Fuorimenù</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
   <link
-    href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=JetBrains+Mono:ital,wght@0,400;1,700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&family=Fasthand&family=JetBrains+Mono:ital,wght@0,400;1,700&display=swap"
     rel="stylesheet"
   />
 </svelte:head>
 
 <main class="game-page">
   <header class="kitchen-topbar" aria-label="Navigazione cucina">
-    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Retrogusto">RG</a>
+    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù">FM</a>
     <a class="home-link" href="/?view=cards" aria-label="Torna alle card">
       <span class="close-icon" aria-hidden="true"></span>
     </a>

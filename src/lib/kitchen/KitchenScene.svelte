@@ -63,7 +63,6 @@
       }
     | undefined;
   let isDragging = $state(false);
-  let isChefBubbleOpen = $state(false);
   let isHelmetVideoOpen = $state(false);
   let isSceneLoaded = $state(false);
 
@@ -77,6 +76,11 @@
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
 
   const scenePx = (value: number) => px(value, 2);
+  const chefPinnedLeftInset = $derived(Math.max(32, Math.min(80, viewportWidth * 0.064)));
+  const chefNaturalLeft = $derived(chef.x * sceneScale - cameraX * layerSpeed.chef);
+  const chefLeft = $derived(Math.max(chefNaturalLeft, chefPinnedLeftInset));
+  const isChefPinned = $derived(chefNaturalLeft <= chefPinnedLeftInset);
+  const isChefDialogueVisible = $derived(isChefPinned);
 
   function syncViewport() {
     if (!stageEl) return;
@@ -119,7 +123,7 @@
 
   function getChefStyle() {
     return [
-      `left: ${scenePx(chef.x * sceneScale - cameraX * layerSpeed.chef)}`,
+      `left: ${scenePx(chefLeft)}`,
       `bottom: ${scenePx(viewportHeight / 20)}`,
       `width: ${scenePx(chef.width * sceneScale)}`
     ].join(';');
@@ -231,18 +235,18 @@
 
   <button
     class="chef-button reveal-object"
-    class:is-open={isChefBubbleOpen}
+    class:is-dialogue-visible={isChefDialogueVisible}
     style={`${getChefStyle()}; --reveal-delay: 390ms;`}
     type="button"
-    aria-label="Apri testimonianza Carlo Zarri"
+    aria-label="Testimonianza Carlo Zarri"
     onpointerdown={(event) => event.stopPropagation()}
-    onclick={() => {
-      isChefBubbleOpen = !isChefBubbleOpen;
-    }}
   >
-    <span class="speech-bubble" aria-hidden={!isChefBubbleOpen}>
-      <strong>Carlo Zarri</strong>
-      <span>{chefQuote}</span>
+    <span class="speech-bubble" aria-hidden={!isChefDialogueVisible} data-node-id="3772:1119">
+      <span class="speech-bubble-copy">{chefQuote}</span>
+      <span class="speech-bubble-meta" aria-label="Chief Executive Chef - Carlo Zarri">
+        <span>Chief Executive Chef - </span>
+        <strong>Carlo Zarri</strong>
+      </span>
     </span>
     <img src="/assets/npc_CarloZarri_alt1.svg" alt="" draggable="false" />
   </button>
@@ -272,21 +276,21 @@
         <path
           d="M2089.16 508.428C2089.16 508.428 2106.4 451.773 2051.95 441.457C2051.95 441.457 2021.37 434.187 2005.72 469.447C2005.15 470.754 2004.16 471.827 2002.92 472.525C2000.99 473.601 1998.57 475.947 2001.15 480.372C2005.05 487.046 2045.34 526.851 2088.79 508.774L2089.16 508.428Z"
           fill="var(--color-surface-page)"
-          stroke="#FF1DA1"
+          stroke="#FCB131"
           stroke-width="2"
           stroke-miterlimit="10"
         />
         <path
           d="M2090.16 509.243C2090.16 509.243 2108.45 528.975 2089.62 532.139C2076.4 534.362 2063.15 531.895 2056.44 530.231C2053.48 529.498 2050.66 528.338 2048.04 526.776C2044.17 524.47 2042.81 523.889 2035.89 517.022C2030.86 512.023 2024.42 500.643 2024.42 500.643C2035.61 507.376 2045.51 510.352 2052.17 511.8C2054.6 512.332 2058.17 513.091 2062.9 513.396C2074.68 514.156 2084.23 511.475 2090.16 509.251L2090.16 509.243Z"
           fill="var(--color-surface-page)"
-          stroke="#FF1DA1"
+          stroke="#FCB131"
           stroke-width="2"
           stroke-miterlimit="10"
         />
         <path
           d="M2058.1 499.644C2058.1 499.644 2067.92 455.27 2034.27 442.355"
           fill="var(--color-surface-page)"
-          stroke="#FF1DA1"
+          stroke="#FCB131"
           stroke-width="2"
           stroke-miterlimit="10"
           stroke-linecap="round"
@@ -294,7 +298,7 @@
         <path
           d="M2074.69 499.96C2074.69 499.96 2083.47 455.65 2045.68 441.048"
           fill="var(--color-surface-page)"
-          stroke="#FF1DA1"
+          stroke="#FCB131"
           stroke-width="2"
           stroke-miterlimit="10"
           stroke-linecap="round"
@@ -467,35 +471,78 @@
 
   .speech-bubble {
     position: absolute;
-    right: -330px;
-    bottom: calc(100% - 90px);
+    left: calc(100% + clamp(18px, 2.2vw, 34px));
+    bottom: calc(100% - clamp(92px, 10vw, 200px));
     box-sizing: border-box;
-    display: grid;
-    gap: 8px;
-    width: min(500px, 62vw);
-    padding: 18px 20px;
-    border: 2px solid var(--color-border-primary);
-    border-radius: var(--dialogue-radius);
-    background: var(--color-surface-page);
+    display: flex;
+    flex-direction: column;
+    width: clamp(320px, 36.7vw, 470px);
+    min-height: clamp(142px, 14.3vw, 183px);
     color: var(--color-text-primary);
     font-family: var(--font-text);
-    font-size: clamp(12px, 1.35vw, 18px);
-    font-weight: 400;
-    line-height: 1.4;
     text-align: left;
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
-    transition: opacity 160ms ease, transform 180ms ease;
+    transform: translate3d(-14px, 8px, 0);
+    transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
   }
 
-  .speech-bubble strong {
-    font-size: 0.86em;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .speech-bubble::before {
+    position: absolute;
+    z-index: 0;
+    left: -24px;
+    top: clamp(82px, 8.9vw, 114px);
+    width: 28px;
+    height: 28px;
+    background: var(--color-border-primary);
+    clip-path: polygon(0 50%, 100% 0, 100% 100%);
+    content: '';
   }
 
-  .chef-button.is-open .speech-bubble {
+  .speech-bubble-copy {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    min-height: clamp(120px, 14.3vw, 183px);
+    padding: clamp(20px, 2.28vw, 29px);
+    border: 3px solid var(--color-border-primary);
+    border-radius: 12px 12px 0 0;
+    background: var(--color-surface-page);
+    font-size: clamp(16px, 1.56vw, 20px);
+    font-weight: 400;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+
+  .speech-bubble-meta {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    min-height: 43px;
+    padding: 0 clamp(18px, 1.5vw, 19px);
+    border-radius: 0 0 var(--radius-s) var(--radius-s);
+    background: var(--color-border-primary);
+    color: var(--color-surface-page);
+    font-family: var(--font-text);
+    font-size: clamp(12px, 1.25vw, 16px);
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .speech-bubble-meta strong {
+    margin-left: 4px;
+    font-family: "Fasthand", cursive;
+    font-size: clamp(20px, 1.88vw, 24px);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .chef-button.is-dialogue-visible .speech-bubble {
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
@@ -580,9 +627,34 @@
 
   @media (max-width: 760px) {
     .speech-bubble {
-      right: -180px;
-      width: min(360px, 74vw);
-      padding: 14px 16px;
+      left: 0;
+      bottom: calc(100% + 8px);
+      width: min(330px, calc(100vw - 64px));
+      min-height: 0;
+    }
+
+    .speech-bubble::before {
+      left: -18px;
+      top: 72px;
+      width: 22px;
+      height: 22px;
+    }
+
+    .speech-bubble-copy {
+      min-height: 106px;
+      padding: 14px 18px;
+      border-width: 2px;
+      font-size: 13px;
+    }
+
+    .speech-bubble-meta {
+      min-height: 38px;
+      padding: 0 14px;
+      font-size: 11px;
+    }
+
+    .speech-bubble-meta strong {
+      font-size: 18px;
     }
   }
 

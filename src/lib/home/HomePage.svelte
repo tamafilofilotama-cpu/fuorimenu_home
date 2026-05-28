@@ -132,7 +132,7 @@
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina delle olimpiadi...';
   const nextMessage     = 'Incontra le persone che hanno reso tutto questo possibile.';
   const audioGateMessage = "Attiva l'audio per un'esperienza più immersiva";
-  const brandWord       = 'Retrogusto';
+  const brandWord       = 'Fuorimenù';
   const brandSubtitle   = 'Dentro le cucine di Milano Cortina 2026';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
@@ -1316,7 +1316,7 @@
 </section>
 
 
-<section bind:this={brandScreen} class="brand-screen" aria-label="Retrogusto">
+<section bind:this={brandScreen} class="brand-screen" aria-label="Fuorimenù">
   {#each floatingAssets as asset, index}
     <div
       bind:this={floatingEls[index]}
@@ -1349,9 +1349,9 @@
   </div>
 </section>
 
-<section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Retrogusto">
+<section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenù">
   <header class="roles-top-bar" aria-label="Navigazione principale">
-    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Retrogusto" onclick={reloadHome}>RG</a>
+    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>FM</a>
     <span class="top-bar-audio top-bar-audio-slot" aria-hidden="true"></span>
     <button
       class="icon-button top-bar-menu"
@@ -1438,7 +1438,7 @@
     data-node-id="256:1827"
   >
     <header class="about-top-bar" aria-label="Navigazione about">
-      <a class="logo about-logo" href="/?view=brand" aria-label="Vai al brand screen Retrogusto" onclick={reloadHome}>RG</a>
+      <a class="logo about-logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>FM</a>
       <button
         class="icon-button top-bar-audio about-audio"
         type="button"
@@ -1463,7 +1463,7 @@
     </header>
 
     <div class="about-copy" data-node-id="256:1831">
-      <h2 id="about-title" class="visually-hidden">About Retrogusto</h2>
+      <h2 id="about-title" class="visually-hidden">About Fuorimenù</h2>
       <p>
         Questo progetto nasce nel corso di Web Design del Politecnico di Milano con l'obiettivo di raccontare il ruolo delle persone che, attraverso la cultura alimentare italiana, hanno contribuito a Milano Cortina 2026.
       </p>
