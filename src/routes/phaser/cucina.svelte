@@ -1,17 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  const sceneWidth = 8192;
-  const sceneHeight = 1211;
-  const assetWidth = 8192;
-  const foregroundSvgWidth = 5929;
+  const sceneWidth = 24268;
+  const assetWidth = 24268;
+  const assetHeight = 875;
+  const foregroundSvgWidth = 24268;
   const floorHeight = 225;
   const floorTileWidth = 224;
   const layerSpeed = {
     background: 0.38,
-    middle: 0.78,
-    title: 1.2,
-    chef: 1.2,
+    middle: 1.2,
+    title: 0.8,
+    chef: 0.8,
     foreground: 1.14
   };
   const cursorCss = "url('/cursors/retrogusto-cursor.svg') 5 5, auto";
@@ -46,9 +46,11 @@
     height: 248
   };
 
-  const sceneScale = $derived(viewportHeight ? viewportHeight / sceneHeight : 1);
+  // Use the actual SVG asset height for vertical scaling so layers align
+  const sceneScale = $derived(viewportHeight ? viewportHeight / assetHeight : 1);
   const worldWidth = $derived(Math.max(viewportWidth, sceneWidth * sceneScale));
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
+  const layerVerticalShift = 0;
 
   const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
   const px = (value: number) => `${value.toFixed(2)}px`;
@@ -96,11 +98,12 @@
     cameraFrame = requestAnimationFrame(updateCamera);
   }
 
-  function getLayerStyle(factor: number, bottomOffset = 0) {
+  function getLayerStyle(factor: number, verticalOffset = 0) {
     return [
       `width: ${px(assetWidth * sceneScale)}`,
-      `bottom: ${px(bottomOffset * sceneScale)}`,
-      `transform: translate3d(${px(-cameraX * factor)}, 0, 0)`
+      `height: 100%`,
+      `bottom: 0`,
+      `transform: translate3d(${px(-cameraX * factor)}, ${px((layerVerticalShift + verticalOffset) * sceneScale)}, 0)`
     ].join(';');
   }
 
@@ -108,7 +111,7 @@
     return [
       `left: ${px(92 * sceneScale - cameraX * layerSpeed.title)}`,
       `top: ${px(viewportHeight / 2 - 132 * sceneScale)}`,
-      `font-size: ${px(255 * sceneScale)}`
+      `font-size: ${px(180 * sceneScale)}`
     ].join(';');
   }
 
@@ -195,7 +198,7 @@
     class="parallax-layer reveal-layer background-layer"
     style={`${getLayerStyle(layerSpeed.background)}; --reveal-delay: 40ms;`}
   >
-    <img src="/assets/cucina_background.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer4b.svg" alt="" draggable="false" />
   </div>
 
   <div
@@ -207,7 +210,7 @@
     class="parallax-layer reveal-layer middle-layer"
     style={`${getLayerStyle(layerSpeed.middle)}; --reveal-delay: 280ms;`}
   >
-    <img src="/assets/cucina_layer3a.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer2b.svg" alt="" draggable="false" />
   </div>
 
   <h1 class="scene-title" style={getTitleStyle()} aria-label="Cucina">
@@ -236,9 +239,9 @@
 
   <div
     class="parallax-layer reveal-layer foreground-layer"
-    style={`${getLayerStyle(layerSpeed.foreground, -180)}; --reveal-delay: 470ms;`}
+    style={`${getLayerStyle(layerSpeed.foreground)}; --reveal-delay: 470ms;`}
   >
-    <img src="/assets/cucina_layer1a.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer1b.svg" alt="" draggable="false" />
     <button
       class="helmet-hotspot"
       style={getForegroundRectStyle(helmetHotspot)}
@@ -268,7 +271,7 @@
   .kitchen-stage {
     position: relative;
     width: 100%;
-    min-height: 100svh;
+    height: 100%;
     overflow: hidden;
     background: var(--color-surface-page);
     cursor: var(--kitchen-cursor);
@@ -294,6 +297,9 @@
   }
 
   .parallax-layer {
+    top: 0;
+    bottom: 0;
+    height: 100%;
     pointer-events: none;
   }
 
@@ -316,8 +322,12 @@
   .parallax-layer img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: contain;
+    object-position: left center;
+    max-width: none;
     user-select: none;
+    pointer-events: none;
   }
 
   .background-layer {
@@ -335,6 +345,7 @@
 
   .middle-layer {
     z-index: 3;
+    
   }
 
   .scene-title {
@@ -360,7 +371,7 @@
   }
 
   .chef-button {
-    z-index: 5;
+    z-index: 2;
     display: block;
     padding: 0;
     border: 0;
@@ -381,7 +392,7 @@
   .chef-button img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 60svh;
     pointer-events: none;
     user-select: none;
   }
@@ -422,6 +433,7 @@
   }
 
   .foreground-layer {
+    top: 0;
     z-index: 6;
   }
 
