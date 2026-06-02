@@ -220,6 +220,13 @@
     {/each}
   </h1>
 
+  <div
+    class="parallax-layer reveal-layer foreground-layer foreground-back-layer"
+    style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
+  >
+    <img src="/assets/cucina_layer1b_depth_back.svg" alt="" draggable="false" />
+  </div>
+
   <button
     class="chef-button reveal-object"
     class:is-dialogue-visible={isChefDialogueVisible}
@@ -239,10 +246,10 @@
   </button>
 
   <div
-    class="parallax-layer reveal-layer foreground-layer"
+    class="parallax-layer reveal-layer foreground-layer foreground-front-layer"
     style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
   >
-    <img src="/assets/cucina_layer1b.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer1b_depth_front.svg" alt="" draggable="false" />
   </div>
 </section>
 
@@ -338,7 +345,7 @@
   }
 
   .chef-button {
-    z-index: 4;
+    z-index: 5;
     display: block;
     padding: 0;
     border: 0;
@@ -470,6 +477,14 @@
   }
 
   .foreground-layer {
+    z-index: 6;
+  }
+
+  .foreground-back-layer {
+    z-index: 4;
+  }
+
+  .foreground-front-layer {
     z-index: 6;
   }
 
