@@ -10,7 +10,7 @@
   import type {
     KitchenControllerEvents,
     KitchenControllerState
-  } from '$lib/phaser/kitchen-controller';
+  } from '$lib/kitchen/kitchen-scroll-controller';
 
   const {
     assetWidth,
@@ -130,8 +130,10 @@
   }
 
   function onWheel(event: WheelEvent) {
+    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+
     event.preventDefault();
-    scrollBy((event.deltaY + event.deltaX) * 1.05);
+    scrollBy(event.deltaX * 1.05);
   }
 
   function onPointerDown(event: PointerEvent) {
@@ -171,12 +173,13 @@
     }));
     resources.add(createViewportObserver(stageEl, syncViewport));
 
-    import('$lib/phaser/kitchen-controller').then(({ mountKitchenController }) => {
+    import('$lib/kitchen/kitchen-scroll-controller').then(({ mountKitchenScrollController }) => {
       if (destroyed) return;
-      kitchenController = mountKitchenController({
+      kitchenController = mountKitchenScrollController({
         bridge,
         config: kitchenSceneConfig,
         getViewport: () => ({ width: viewportWidth, height: viewportHeight }),
+        stageEl
       });
       resources.add(() => kitchenController?.destroy());
     });
@@ -382,13 +385,12 @@
 
   .reveal-layer {
     opacity: 0;
-    scale: 0;
     transform-origin: 50% 50%;
-    will-change: transform, scale, opacity;
+    will-change: opacity;
   }
 
   .kitchen-stage.is-loaded .reveal-layer {
-    animation: layerReveal var(--reveal-duration, 360ms) cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms) forwards;
+    animation: layerPopIn 1ms step-end var(--reveal-delay, 0ms) forwards;
   }
 
   .parallax-layer img {
@@ -611,20 +613,13 @@
     pointer-events: auto;
   }
 
-  @keyframes layerReveal {
+  @keyframes layerPopIn {
     0% {
       opacity: 0;
-      scale: 0;
-    }
-
-    72% {
-      opacity: 1;
-      scale: 0.985;
     }
 
     100% {
       opacity: 1;
-      scale: 1;
     }
   }
 
@@ -696,7 +691,6 @@
   @media (prefers-reduced-motion: reduce) {
     .reveal-layer {
       opacity: 1;
-      scale: 1;
       animation: none;
     }
 

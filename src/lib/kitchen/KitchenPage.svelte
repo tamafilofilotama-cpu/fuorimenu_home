@@ -61,7 +61,7 @@
   .game-page {
     position: relative;
     min-height: 100svh;
-    overflow: hidden;
+    overflow-x: hidden;
     color: var(--color-text-primary);
     background: var(--color-surface-page);
     font-family: var(--font-text);
@@ -144,8 +144,8 @@
   }
 
   .game-shell {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    height: 100svh;
   }
 
   @media (max-width: 760px) {

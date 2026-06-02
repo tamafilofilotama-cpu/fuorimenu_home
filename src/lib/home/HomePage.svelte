@@ -335,10 +335,7 @@
       speaker: 'Stefano Paganini',
       dialogue: 'il mio ruolo ... seguimi nella cucina per saperne di più',
       hoverText: 'io sono stefano paganini seguimi in cucina',
-      personSrc: '/images/chef-link-outline.svg',
-      personNodeId: '3695:3969',
-      personFillSrc: '/images/chef-link-filled.svg',
-      personFillNodeId: '3695:3926',
+      personSrc: '/images/stefano-paganini-figma.png',
       href: '/phaser'
     },
     {
@@ -2424,8 +2421,8 @@
 
   .role-card.is-cucina {
     --role-person-base-x: 0px;
-    --role-person-base-y: 84px;
-    --role-person-height: min(76%, 860px);
+    --role-person-base-y: 28px;
+    --role-person-height: min(66%, 720px);
   }
 
   .role-card.is-ufficio {
