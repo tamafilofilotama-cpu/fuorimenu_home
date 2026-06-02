@@ -39,7 +39,9 @@
   const sceneResources = createSceneResourceScope();
 
   const audioRoles = ['ufficio', 'cucina', 'servizio'] as const;
+  const homeAudioIds = ['background', ...audioRoles] as const;
   type AudioRole = (typeof audioRoles)[number];
+  type HomeAudioId = (typeof homeAudioIds)[number];
   type RoleItem = {
     title: AudioRole;
     description: string;
@@ -76,6 +78,13 @@
       outputGain: 0.92,
       fadeIn: false
     }
+  };
+  const backgroundAudio: AudioCueConfig = {
+    src: '/sound/background_home.mp3',
+    startTime: 0,
+    targetVolume: 0.26,
+    fadeInDuration: 1.2,
+    loop: true
   };
   const roleAudioEntries = audioRoles.map((role) => ({ role, config: roleAudio[role] }));
   type LetterStyleOptions = { start: number; end: number; windowSize: number; invert: boolean; dy: number };
@@ -174,7 +183,8 @@
     closeEase: 'power3.in'
   };
   const audioFadeMotion = { duration: 0.52, ease: 'power2.inOut' };
-  const audioCues = createAudioCueManager<AudioRole>({ fade: audioFadeMotion });
+  const audioCues = createAudioCueManager<HomeAudioId>({ fade: audioFadeMotion });
+  audioCues.registerAudioCue('background', backgroundAudio);
   audioRoles.forEach((role) => {
     audioCues.registerAudioCue(role, roleAudio[role]);
   });
@@ -870,7 +880,9 @@
   function toggleAudioMuted() {
     isAudioMuted = !isAudioMuted;
     if (isAudioMuted) {
-      stopAllRoleAudio();
+      stopAllHomeAudio();
+    } else {
+      void startBackgroundAudio();
     }
   }
 
@@ -879,7 +891,10 @@
     isAudioMuted = nextMuted;
     activeAudioGateChoice = choice;
     isAudioGateOpening = true;
-    if (!nextMuted) await unlockAmbientAudio();
+    if (!nextMuted) {
+      await unlockAmbientAudio();
+      await startBackgroundAudio();
+    }
     sceneResources.addTimeout(revealIntroLetters, 760);
     sceneResources.addTimeout(() => {
       isAudioGateVisible = false;
@@ -887,7 +902,16 @@
   }
 
   async function unlockAmbientAudio() {
-    await audioCues.unlock(audioRoles);
+    await audioCues.unlock(homeAudioIds);
+  }
+
+  async function startBackgroundAudio() {
+    if (isAudioMuted) return;
+    await audioCues.play('background');
+  }
+
+  function stopAllHomeAudio() {
+    audioCues.stopAll(homeAudioIds);
   }
 
   function stopAllRoleAudio() {
@@ -1441,6 +1465,13 @@
     {/each}
   </div>
 </section>
+
+<audio
+  bind:this={backgroundAudio.el}
+  src={backgroundAudio.src}
+  preload="none"
+  aria-hidden="true"
+></audio>
 
 {#each roleAudioEntries as { role, config } (role)}
   <audio

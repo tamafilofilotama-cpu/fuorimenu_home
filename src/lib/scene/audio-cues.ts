@@ -4,6 +4,7 @@ export type AudioCueConfig = {
   el?: HTMLAudioElement;
   fadeIn?: boolean;
   fadeInDuration?: number;
+  loop?: boolean;
   maxTime?: number;
   outputGain?: number;
   src?: string;
@@ -125,7 +126,7 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
 
     cancelFade(id);
     cancelLoop(id);
-    audio.loop = false;
+    audio.loop = config.loop ?? false;
     audio.pause();
     audio.currentTime = config.startTime ?? 0;
     setupOutput(id);
