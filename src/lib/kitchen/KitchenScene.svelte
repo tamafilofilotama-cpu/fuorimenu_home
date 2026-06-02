@@ -117,7 +117,7 @@
     return [
       `left: ${scenePx(92 * sceneScale - cameraX * layerSpeed.title)}`,
       `top: ${scenePx(viewportHeight / 2 - 132 * sceneScale)}`,
-      `font-size: ${scenePx(255 * sceneScale)}`
+      `font-size: ${scenePx(180 * sceneScale)}`
     ].join(';');
   }
 
@@ -215,7 +215,7 @@
     class="parallax-layer reveal-layer background-layer"
     style={`${getLayerStyle(layerSpeed.background)}; --reveal-delay: 40ms;`}
   >
-    <img src="/assets/cucina_background.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer4b.svg" alt="" draggable="false" />
   </div>
 
   <div
@@ -227,7 +227,7 @@
     class="parallax-layer reveal-layer middle-layer"
     style={`${getLayerStyle(layerSpeed.middle)}; --reveal-delay: 280ms;`}
   >
-    <img src="/assets/cucina_layer3a.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer2b.svg" alt="" draggable="false" />
   </div>
 
   <h1 class="scene-title" style={getTitleStyle()} aria-label="Cucina">
@@ -258,7 +258,7 @@
     class="parallax-layer reveal-layer foreground-layer"
     style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
   >
-    <img src="/assets/cucina_layer1a.svg" alt="" draggable="false" />
+    <img src="/assets/cucina_layer1b.svg" alt="" draggable="false" />
   </div>
 
   <svg
@@ -471,13 +471,13 @@
 
   .speech-bubble {
     position: absolute;
-    left: calc(100% + clamp(18px, 2.2vw, 34px));
-    bottom: calc(100% - clamp(92px, 10vw, 200px));
+    left: calc(100% + clamp(14px, 1.7vw, 24px));
+    bottom: calc(100% - clamp(72px, 7.8vw, 142px));
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    width: clamp(320px, 36.7vw, 470px);
-    min-height: clamp(142px, 14.3vw, 183px);
+    width: clamp(260px, 29vw, 370px);
+    min-height: clamp(112px, 11vw, 146px);
     color: var(--color-text-primary);
     font-family: var(--font-text);
     text-align: left;
@@ -489,10 +489,10 @@
   .speech-bubble::before {
     position: absolute;
     z-index: 0;
-    left: -24px;
-    top: clamp(82px, 8.9vw, 114px);
-    width: 28px;
-    height: 28px;
+    left: -20px;
+    top: clamp(62px, 6.7vw, 88px);
+    width: 22px;
+    height: 22px;
     background: var(--color-border-primary);
     clip-path: polygon(0 50%, 100% 0, 100% 100%);
     content: '';
@@ -511,12 +511,12 @@
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    min-height: clamp(120px, 14.3vw, 183px);
-    padding: clamp(20px, 2.28vw, 29px);
-    border: 3px solid var(--color-border-primary);
-    border-radius: 12px 12px 0 0;
+    min-height: clamp(94px, 10.7vw, 142px);
+    padding: clamp(15px, 1.72vw, 22px);
+    border: 2px solid var(--color-border-primary);
+    border-radius: 10px 10px 0 0;
     background: var(--color-surface-page);
-    font-size: clamp(16px, 1.56vw, 20px);
+    font-size: clamp(13px, 1.22vw, 16px);
     font-weight: 400;
     line-height: 1.2;
     word-break: break-word;
@@ -530,14 +530,14 @@
     z-index: 1;
     display: flex;
     align-items: center;
-    min-height: 46px;
-    margin-top: -3px;
-    padding: 0 clamp(18px, 1.5vw, 19px);
+    min-height: 36px;
+    margin-top: -2px;
+    padding: 0 clamp(13px, 1.18vw, 15px);
     border-radius: 0 0 var(--radius-s) var(--radius-s);
     background: var(--color-border-primary);
     color: var(--color-surface-page);
     font-family: var(--font-text);
-    font-size: clamp(12px, 1.25vw, 16px);
+    font-size: clamp(10px, 0.98vw, 13px);
     font-weight: 700;
     line-height: 1.5;
     white-space: nowrap;
@@ -549,7 +549,7 @@
   .speech-bubble-meta strong {
     margin-left: 4px;
     font-family: "Fasthand", cursive;
-    font-size: clamp(20px, 1.88vw, 24px);
+    font-size: clamp(16px, 1.48vw, 19px);
     font-weight: 400;
     line-height: 1.5;
   }

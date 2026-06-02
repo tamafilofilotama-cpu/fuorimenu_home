@@ -1,25 +1,25 @@
 export type KitchenChefId = 'carlo';
 
 export const kitchenSceneConfig = {
-  sceneWidth: 8192,
-  sceneHeight: 1211,
-  assetWidth: 8192,
-  foregroundSvgWidth: 5929,
-  foregroundSvgHeight: 1022,
-  foregroundBottomOffset: -180,
+  sceneWidth: 24268,
+  sceneHeight: 875,
+  assetWidth: 24268,
+  foregroundSvgWidth: 24268,
+  foregroundSvgHeight: 875,
+  foregroundBottomOffset: 0,
   floorHeight: 225,
   floorTileWidth: 224,
   chef: {
     id: 'carlo' as KitchenChefId,
-    x: 1390,
-    width: 300,
+    x: 1100,
+    width: 185,
     visibleThreshold: 0.34
   },
   layerSpeed: {
     background: 0.38,
-    middle: 0.78,
-    title: 1.2,
-    chef: 1.2,
+    middle: 1.2,
+    title: 0.8,
+    chef: 0.8,
     foreground: 1.14
   },
   cursorCss: "url('/cursors/retrogusto-cursor.svg') 5 5, auto",
@@ -30,7 +30,7 @@ export const kitchenSceneConfig = {
   helmet: {
     hotspot: {
       x: 1998,
-      y: 404,
+      y: 436,
       width: 116,
       height: 104
     },
