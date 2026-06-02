@@ -1394,6 +1394,7 @@
   <div class="role-grid">
     {#snippet roleCardBody(item: RoleItem)}
       <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
+      <span class="role-card-bg-overlay" aria-hidden="true"></span>
       <div class="role-hover-panel">
         <p>{item.hoverText}</p>
       </div>
@@ -2285,6 +2286,18 @@
     cursor: pointer;
   }
 
+  .role-card.is-servizio {
+    --role-card-overlay: #65afff;
+  }
+
+  .role-card.is-cucina {
+    --role-card-overlay: #fcb531;
+  }
+
+  .role-card.is-ufficio {
+    --role-card-overlay: #3bc300;
+  }
+
   :global(.card-enter-fade) {
     position: fixed;
     z-index: 119;
@@ -2325,6 +2338,22 @@
     transition: opacity 220ms ease, filter 260ms ease, transform 90ms linear;
     user-select: none;
     pointer-events: none;
+  }
+
+  .role-card-bg-overlay {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    background: var(--role-card-overlay, transparent);
+    opacity: 0;
+    mix-blend-mode: multiply;
+    transition: opacity 180ms ease;
+    pointer-events: none;
+  }
+
+  .role-card:hover .role-card-bg-overlay,
+  .role-card:focus-visible .role-card-bg-overlay {
+    opacity: 0.18;
   }
 
   .role-hover-panel {

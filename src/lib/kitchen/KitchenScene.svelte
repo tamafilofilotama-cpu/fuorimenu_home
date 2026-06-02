@@ -37,6 +37,10 @@
     initialKitchenState
   );
   const { bridge } = sceneController;
+  const kitchenAssetVersion = '20260602-svg-control-4';
+  const kitchenAsset = (name: string) => `/assets/${name}?v=${kitchenAssetVersion}`;
+  const toolShedMessage =
+    'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
 
   let stageEl: HTMLElement;
   let viewportWidth = $state(0);
@@ -104,6 +108,27 @@
       `left: ${scenePx(92 * sceneScale - cameraX * layerSpeed.title)}`,
       `top: ${scenePx(viewportHeight / 2 - 132 * sceneScale)}`,
       `font-size: ${scenePx(180 * sceneScale)}`
+    ].join(';');
+  }
+
+  function getToolShedStyle() {
+    const x = 5500;
+    const width = 166.747;
+    const height = 180.446;
+    const y = 595 - height;
+
+    return [
+      `width: ${scenePx(width * sceneScale)}`,
+      `height: ${scenePx(height * sceneScale)}`,
+      `bottom: ${scenePx((sceneHeight - y - height) * sceneScale)}`,
+      `--tool-shed-message-left: ${scenePx(190 * sceneScale)}`,
+      `--tool-shed-message-top: ${scenePx(36 * sceneScale)}`,
+      `--tool-shed-message-width: ${scenePx(322 * sceneScale)}`,
+      `--tool-shed-message-padding: ${scenePx(20 * sceneScale)}`,
+      `--tool-shed-message-font-size: ${scenePx(16 * sceneScale)}`,
+      `--tool-shed-arrow-top: ${scenePx(64 * sceneScale)}`,
+      `--tool-shed-arrow-size: ${scenePx(18 * sceneScale)}`,
+      `transform: translate3d(${scenePx(x * sceneScale - cameraX * layerSpeed.foreground)}, 0, 0)`
     ].join(';');
   }
 
@@ -199,7 +224,7 @@
     class="parallax-layer reveal-layer background-layer"
     style={`${getLayerStyle(layerSpeed.background)}; --reveal-delay: 40ms;`}
   >
-    <img src="/assets/cucina_layer4b.svg" alt="" draggable="false" />
+    <img src={kitchenAsset('cucina_layer4b.svg')} alt="" draggable="false" />
   </div>
 
   <div
@@ -211,7 +236,7 @@
     class="parallax-layer reveal-layer middle-layer"
     style={`${getLayerStyle(layerSpeed.middle)}; --reveal-delay: 280ms;`}
   >
-    <img src="/assets/cucina_layer2b.svg" alt="" draggable="false" />
+    <img src={kitchenAsset('cucina_layer2b.svg')} alt="" draggable="false" />
   </div>
 
   <h1 class="scene-title" style={getTitleStyle()} aria-label="Cucina">
@@ -224,7 +249,22 @@
     class="parallax-layer reveal-layer foreground-layer foreground-back-layer"
     style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
   >
-    <img src="/assets/cucina_layer1b_depth_back.svg" alt="" draggable="false" />
+    <img src={kitchenAsset('cucina_layer1b_depth_back.svg')} alt="" draggable="false" />
+  </div>
+
+  <div
+    class="parallax-layer reveal-layer tool-shed-layer"
+    style={`${getToolShedStyle()}; --reveal-delay: 470ms;`}
+    role="button"
+    tabindex="0"
+    aria-label="Messaggio casetta degli attrezzi"
+    onpointerdown={(event) => event.stopPropagation()}
+  >
+    <img src={kitchenAsset('casetta_attrezzi_figma.svg')} alt="" draggable="false" />
+    <span class="tool-shed-hover-arrow" aria-hidden="true"></span>
+    <span class="tool-shed-hover-panel" aria-hidden="true" data-node-id="3928:1640">
+      <span class="tool-shed-hover-copy">{toolShedMessage}</span>
+    </span>
   </div>
 
   <button
@@ -249,7 +289,7 @@
     class="parallax-layer reveal-layer foreground-layer foreground-front-layer"
     style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
   >
-    <img src="/assets/cucina_layer1b_depth_front.svg" alt="" draggable="false" />
+    <img src={kitchenAsset('cucina_layer1b_depth_front.svg')} alt="" draggable="false" />
   </div>
 </section>
 
@@ -484,6 +524,91 @@
     z-index: 4;
   }
 
+  .tool-shed-layer {
+    z-index: 8;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .tool-shed-layer:focus-visible {
+    outline: none;
+  }
+
+  .tool-shed-layer img {
+    position: relative;
+    z-index: 1;
+    transform-origin: 50% 100%;
+    will-change: transform;
+  }
+
+  .tool-shed-layer:hover img,
+  .tool-shed-layer:focus-visible img {
+    animation: toolShedHeavyLanding 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .tool-shed-hover-panel {
+    position: absolute;
+    z-index: 2;
+    left: var(--tool-shed-message-left);
+    top: var(--tool-shed-message-top);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--tool-shed-message-width);
+    padding: var(--tool-shed-message-padding);
+    border: 2px solid #fcb531;
+    border-radius: var(--radius-s);
+    background: #f7f3ea;
+    color: var(--color-text-primary);
+    opacity: 0;
+    -webkit-clip-path: inset(0 100% 0 0);
+    clip-path: inset(0 100% 0 0);
+    transition: opacity 1ms linear 120ms;
+    pointer-events: none;
+    will-change: clip-path;
+  }
+
+  .tool-shed-hover-arrow {
+    position: absolute;
+    z-index: 1;
+    left: var(--tool-shed-message-left);
+    top: var(--tool-shed-arrow-top);
+    width: var(--tool-shed-arrow-size);
+    height: var(--tool-shed-arrow-size);
+    background: #fcb531;
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(45deg);
+    transition: opacity 1ms linear 120ms;
+  }
+
+  .tool-shed-hover-copy {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    font-family: "JetBrains Mono", var(--font-text);
+    font-size: var(--tool-shed-message-font-size);
+    font-style: italic;
+    font-weight: 300;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .tool-shed-layer:hover .tool-shed-hover-panel,
+  .tool-shed-layer:focus-visible .tool-shed-hover-panel {
+    opacity: 1;
+    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition-delay: 0ms;
+  }
+
+  .tool-shed-layer:hover .tool-shed-hover-arrow,
+  .tool-shed-layer:focus-visible .tool-shed-hover-arrow {
+    opacity: 1;
+    transition-delay: 0ms;
+  }
+
   .foreground-front-layer {
     z-index: 6;
   }
@@ -507,6 +632,48 @@
     to {
       -webkit-clip-path: inset(0 0 0 0);
       clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @keyframes toolShedHeavyLanding {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    10% {
+      transform: translate3d(0, 0, 0) scale(1.035, 0.965);
+    }
+
+    24% {
+      transform: translate3d(0, -18px, 0) scale(0.975, 1.025);
+    }
+
+    42% {
+      transform: translate3d(1px, -34px, 0) scale(0.985, 1.015);
+    }
+
+    56% {
+      transform: translate3d(-1px, -14px, 0) scale(1);
+    }
+
+    66% {
+      transform: translate3d(0, 0, 0) scale(1.11, 0.86);
+    }
+
+    73% {
+      transform: translate3d(0, -7px, 0) scale(0.965, 1.045);
+    }
+
+    81% {
+      transform: translate3d(0, 0, 0) scale(1.055, 0.935);
+    }
+
+    89% {
+      transform: translate3d(0, -2px, 0) scale(0.99, 1.01);
+    }
+
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
     }
   }
 
@@ -570,6 +737,8 @@
     }
 
     .reveal-object,
+    .tool-shed-layer:hover img,
+    .tool-shed-layer:focus-visible img,
     .scene-title span {
       opacity: 1;
       transform: none;
@@ -579,13 +748,17 @@
     .speech-bubble,
     .speech-bubble::before,
     .speech-bubble-copy,
-    .speech-bubble-meta {
+    .speech-bubble-meta,
+    .tool-shed-hover-panel,
+    .tool-shed-hover-arrow {
       transition: none;
       animation: none;
     }
 
     .chef-button.is-dialogue-visible .speech-bubble-copy,
-    .chef-button.is-dialogue-visible .speech-bubble-meta {
+    .chef-button.is-dialogue-visible .speech-bubble-meta,
+    .tool-shed-layer:hover .tool-shed-hover-panel,
+    .tool-shed-layer:focus-visible .tool-shed-hover-panel {
       -webkit-clip-path: inset(0 0 0 0);
       clip-path: inset(0 0 0 0);
     }
