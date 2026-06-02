@@ -1,9 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import {
-    kitchenHelmetGeometry,
-    kitchenSceneConfig
-  } from './kitchen-scene.config';
+  import { kitchenSceneConfig } from './kitchen-scene.config';
   import { createSceneController } from '$lib/scene/controller';
   import { clamp, px } from '$lib/scene/math';
   import { createViewportObserver } from '$lib/scene/viewport';
@@ -18,11 +15,11 @@
     chefQuote,
     cursorCss,
     floorHeight,
+    floorBottomOffset,
     floorTileWidth,
     foregroundBottomOffset,
     foregroundSvgHeight,
     foregroundSvgWidth,
-    helmet,
     layerSpeed,
     pointerCursorCss,
     sceneHeight,
@@ -34,8 +31,6 @@
     cameraX: 0,
     targetCameraX: 0,
     progress: 0,
-    helmetRotation: 0,
-    helmetLift: 0,
     activeChefId: undefined
   };
   const sceneController = createSceneController<KitchenControllerState, KitchenControllerEvents>(
@@ -48,8 +43,6 @@
   let viewportHeight = $state(0);
   let cameraX = $state(0);
   let narrativeProgress = $state(0);
-  let helmetRotation = $state(0);
-  let helmetLift = $state(0);
   let activeChefId = $state<KitchenControllerState['activeChefId']>();
   let kitchenController:
     | {
@@ -57,19 +50,12 @@
         beginDrag: (clientX: number) => void;
         dragTo: (clientX: number) => void;
         endDrag: () => void;
-        setHelmetHover: (isHovered: boolean) => void;
         resize: () => void;
         destroy: () => void;
       }
     | undefined;
   let isDragging = $state(false);
-  let isHelmetVideoOpen = $state(false);
   let isSceneLoaded = $state(false);
-
-  const helmetSource = helmet.source;
-  const helmetPivot = kitchenHelmetGeometry.pivot;
-  const helmetOffset = kitchenHelmetGeometry.offset;
-  const helmetVideoPlaceholder = helmet.videoPlaceholder;
 
   const sceneScale = $derived(viewportHeight ? viewportHeight / sceneHeight : 1);
   const worldWidth = $derived(Math.max(viewportWidth, sceneWidth * sceneScale));
@@ -167,8 +153,6 @@
     resources.add(bridge.subscribe((state) => {
       cameraX = state.cameraX;
       narrativeProgress = state.progress;
-      helmetRotation = state.helmetRotation;
-      helmetLift = state.helmetLift;
       activeChefId = state.activeChefId;
     }));
     resources.add(createViewportObserver(stageEl, syncViewport));
@@ -220,7 +204,7 @@
 
   <div
     class="floor-layer reveal-layer"
-    style={`height: ${scenePx(floorHeight * sceneScale)}; background-size: ${scenePx(floorTileWidth * sceneScale)} ${scenePx(floorHeight * sceneScale)}; background-position-x: ${scenePx(-cameraX)}; --reveal-delay: 160ms; --reveal-duration: 320ms;`}
+    style={`height: ${scenePx(floorHeight * sceneScale)}; bottom: ${scenePx(floorBottomOffset * sceneScale)}; background-size: ${scenePx(floorTileWidth * sceneScale)} ${scenePx(floorHeight * sceneScale)}; background-position-x: ${scenePx(-cameraX)}; --reveal-delay: 160ms; --reveal-duration: 320ms;`}
   ></div>
 
   <div
@@ -260,93 +244,6 @@
   >
     <img src="/assets/cucina_layer1b.svg" alt="" draggable="false" />
   </div>
-
-  <svg
-    class="helmet-layer reveal-layer"
-    style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
-    viewBox={`0 0 ${foregroundSvgWidth} ${foregroundSvgHeight}`}
-    aria-label="Casco interattivo"
-  >
-    <g
-      class="helmet-hitbox"
-      transform={`translate(${helmetOffset.x} ${(helmetOffset.y - helmetLift).toFixed(3)})`}
-    >
-      <g
-        class="helmet-art"
-        transform={`rotate(${helmetRotation.toFixed(3)} ${helmetPivot.x.toFixed(2)} ${helmetPivot.y.toFixed(2)})`}
-        aria-hidden="true"
-      >
-        <path
-          d="M2089.16 508.428C2089.16 508.428 2106.4 451.773 2051.95 441.457C2051.95 441.457 2021.37 434.187 2005.72 469.447C2005.15 470.754 2004.16 471.827 2002.92 472.525C2000.99 473.601 1998.57 475.947 2001.15 480.372C2005.05 487.046 2045.34 526.851 2088.79 508.774L2089.16 508.428Z"
-          fill="var(--color-surface-page)"
-          stroke="#FCB131"
-          stroke-width="2"
-          stroke-miterlimit="10"
-        />
-        <path
-          d="M2090.16 509.243C2090.16 509.243 2108.45 528.975 2089.62 532.139C2076.4 534.362 2063.15 531.895 2056.44 530.231C2053.48 529.498 2050.66 528.338 2048.04 526.776C2044.17 524.47 2042.81 523.889 2035.89 517.022C2030.86 512.023 2024.42 500.643 2024.42 500.643C2035.61 507.376 2045.51 510.352 2052.17 511.8C2054.6 512.332 2058.17 513.091 2062.9 513.396C2074.68 514.156 2084.23 511.475 2090.16 509.251L2090.16 509.243Z"
-          fill="var(--color-surface-page)"
-          stroke="#FCB131"
-          stroke-width="2"
-          stroke-miterlimit="10"
-        />
-        <path
-          d="M2058.1 499.644C2058.1 499.644 2067.92 455.27 2034.27 442.355"
-          fill="var(--color-surface-page)"
-          stroke="#FCB131"
-          stroke-width="2"
-          stroke-miterlimit="10"
-          stroke-linecap="round"
-        />
-        <path
-          d="M2074.69 499.96C2074.69 499.96 2083.47 455.65 2045.68 441.048"
-          fill="var(--color-surface-page)"
-          stroke="#FCB131"
-          stroke-width="2"
-          stroke-miterlimit="10"
-          stroke-linecap="round"
-        />
-      </g>
-      <rect
-        class="helmet-hitarea"
-        role="button"
-        tabindex="0"
-        aria-label="Apri placeholder video del casco"
-        x={helmetSource.x - 16}
-        y={helmetSource.y - 16}
-        width={helmetSource.width + 32}
-        height={helmetSource.height + 32}
-        rx="8"
-        onpointerdown={(event) => event.stopPropagation()}
-        onpointerenter={() => {
-          kitchenController?.setHelmetHover(true);
-        }}
-        onpointerleave={() => {
-          kitchenController?.setHelmetHover(false);
-        }}
-        onclick={() => {
-          isHelmetVideoOpen = !isHelmetVideoOpen;
-        }}
-        onkeydown={(event) => {
-          if (event.key !== 'Enter' && event.key !== ' ') return;
-          event.preventDefault();
-          isHelmetVideoOpen = !isHelmetVideoOpen;
-        }}
-      />
-    </g>
-
-    {#if isHelmetVideoOpen}
-      <rect
-        class="helmet-video-placeholder"
-        x={helmetVideoPlaceholder.x}
-        y={helmetVideoPlaceholder.y}
-        width={helmetVideoPlaceholder.width}
-        height={helmetVideoPlaceholder.height}
-        rx="8"
-        aria-label="Placeholder video casco"
-      />
-    {/if}
-  </svg>
 </section>
 
 <style>
@@ -372,8 +269,7 @@
   .parallax-layer,
   .floor-layer,
   .scene-title,
-  .chef-button,
-  .helmet-layer {
+  .chef-button {
     position: absolute;
     left: 0;
     will-change: transform;
@@ -442,7 +338,7 @@
   }
 
   .chef-button {
-    z-index: 5;
+    z-index: 4;
     display: block;
     padding: 0;
     border: 0;
@@ -471,6 +367,7 @@
 
   .speech-bubble {
     position: absolute;
+    z-index: 7;
     left: calc(100% + clamp(14px, 1.7vw, 24px));
     bottom: calc(100% - clamp(72px, 7.8vw, 142px));
     box-sizing: border-box;
@@ -574,43 +471,6 @@
 
   .foreground-layer {
     z-index: 6;
-  }
-
-  .helmet-layer {
-    z-index: 7;
-    overflow: visible;
-    pointer-events: auto;
-  }
-
-  .helmet-hitbox {
-    cursor: var(--kitchen-pointer-cursor);
-    pointer-events: auto;
-  }
-
-  .helmet-art {
-    pointer-events: none;
-    user-select: none;
-  }
-
-  .helmet-hitarea {
-    fill: transparent;
-    stroke: transparent;
-    outline: none;
-    cursor: var(--kitchen-pointer-cursor);
-    pointer-events: all;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .helmet-hitarea:focus,
-  .helmet-hitarea:focus-visible {
-    outline: none;
-  }
-
-  .helmet-video-placeholder {
-    fill: var(--color-surface-page);
-    stroke: #2a4385;
-    stroke-width: 3;
-    pointer-events: auto;
   }
 
   @keyframes layerPopIn {

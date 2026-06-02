@@ -8,6 +8,7 @@ export const kitchenSceneConfig = {
   foregroundSvgHeight: 875,
   foregroundBottomOffset: 0,
   floorHeight: 225,
+  floorBottomOffset: -28,
   floorTileWidth: 224,
   chef: {
     id: 'carlo' as KitchenChefId,
@@ -26,38 +27,7 @@ export const kitchenSceneConfig = {
   pointerCursorCss: "url('/cursors/retrogusto-cursor.svg') 5 5, pointer",
   title: 'Cucina',
   chefQuote:
-    'Il 30 di gennaio era ancora un cantiere, quindi si entrava con l\'elmetto, col giubbotto catarifrangente e le scarpe antinfortunistiche.',
-  helmet: {
-    hotspot: {
-      x: 1998,
-      y: 436,
-      width: 116,
-      height: 104
-    },
-    source: {
-      x: 1998,
-      y: 436,
-      width: 116,
-      height: 104
-    },
-    videoPlaceholder: {
-      x: 2158,
-      y: 292,
-      width: 430,
-      height: 248
-    }
-  }
+    'Il 30 di gennaio era ancora un cantiere, quindi si entrava con l\'elmetto, col giubbotto catarifrangente e le scarpe antinfortunistiche.'
 } as const;
 
 export type KitchenSceneConfig = typeof kitchenSceneConfig;
-
-export const kitchenHelmetGeometry = {
-  offset: {
-    x: kitchenSceneConfig.helmet.hotspot.x - kitchenSceneConfig.helmet.source.x,
-    y: kitchenSceneConfig.helmet.hotspot.y - kitchenSceneConfig.helmet.source.y
-  },
-  pivot: {
-    x: kitchenSceneConfig.helmet.source.x + kitchenSceneConfig.helmet.source.width * 0.78,
-    y: kitchenSceneConfig.helmet.source.y + kitchenSceneConfig.helmet.source.height * 0.09
-  }
-} as const;

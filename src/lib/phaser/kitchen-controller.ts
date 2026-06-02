@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { createHelmetMotion } from '$lib/kitchen/helmet-motion';
 import {
   kitchenSceneConfig,
   type KitchenChefId,
@@ -19,15 +18,12 @@ export type KitchenControllerState = {
   cameraX: number;
   targetCameraX: number;
   progress: number;
-  helmetRotation: number;
-  helmetLift: number;
   activeChefId: KitchenChefId | undefined;
 };
 
 export type KitchenControllerEvents = {
   'chef:enter': { id: KitchenChefId };
   'chef:exit': { id: KitchenChefId };
-  'helmet:hover': { isHovered: boolean };
 };
 
 export type KitchenControllerBridge = SceneBridge<KitchenControllerState, KitchenControllerEvents>;
@@ -49,8 +45,6 @@ export const initialKitchenControllerState: KitchenControllerState = {
   cameraX: 0,
   targetCameraX: 0,
   progress: 0,
-  helmetRotation: 0,
-  helmetLift: 0,
   activeChefId: undefined
 };
 
@@ -58,7 +52,6 @@ class KitchenControllerScene extends Phaser.Scene {
   private activeChefId: KitchenChefId | undefined;
   private readonly bridge: KitchenControllerBridge;
   private readonly config: KitchenSceneConfig;
-  private readonly helmet = createHelmetMotion();
   private readonly tracker: ReturnType<typeof createSceneTracker>;
   private readonly triggers = createTriggerRegistry<KitchenTriggerContext>();
 
@@ -90,17 +83,11 @@ class KitchenControllerScene extends Phaser.Scene {
     this.tracker.endDrag();
   }
 
-  setHelmetHover(isHovered: boolean) {
-    const changed = this.helmet.setHover(isHovered);
-    if (changed) this.bridge.emit('helmet:hover', { isHovered });
-  }
-
   resize() {
     this.tracker.resize();
   }
 
   update(_time: number, delta: number) {
-    this.helmet.step(delta, this.time.now);
     const trackerState = this.tracker.step(delta);
     this.triggers.evaluate({
       cameraX: trackerState.cameraX,
@@ -108,13 +95,10 @@ class KitchenControllerScene extends Phaser.Scene {
       metrics: trackerState.metrics
     });
 
-    const helmetState = this.helmet.getState();
     const state: KitchenControllerState = {
       cameraX: trackerState.cameraX,
       targetCameraX: trackerState.targetCameraX,
       progress: trackerState.progress,
-      helmetRotation: helmetState.rotation,
-      helmetLift: helmetState.lift,
       activeChefId: this.activeChefId
     };
 
@@ -173,7 +157,6 @@ export function mountKitchenController(options: KitchenControllerOptions) {
     dragTo: (clientX: number) => scene.dragTo(clientX),
     endDrag: () => scene.endDrag(),
     resize: () => scene.resize(),
-    scrollBy: (delta: number) => scene.scrollBy(delta),
-    setHelmetHover: (isHovered: boolean) => scene.setHelmetHover(isHovered)
+    scrollBy: (delta: number) => scene.scrollBy(delta)
   };
 }

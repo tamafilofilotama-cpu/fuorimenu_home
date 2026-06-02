@@ -1,6 +1,5 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { createHelmetMotion } from '$lib/kitchen/helmet-motion';
 import {
   kitchenSceneConfig,
   type KitchenChefId,
@@ -22,15 +21,12 @@ export type KitchenControllerState = {
   cameraX: number;
   targetCameraX: number;
   progress: number;
-  helmetRotation: number;
-  helmetLift: number;
   activeChefId: KitchenChefId | undefined;
 };
 
 export type KitchenControllerEvents = {
   'chef:enter': { id: KitchenChefId };
   'chef:exit': { id: KitchenChefId };
-  'helmet:hover': { isHovered: boolean };
 };
 
 export type KitchenControllerBridge = SceneBridge<KitchenControllerState, KitchenControllerEvents>;
@@ -60,8 +56,6 @@ export const initialKitchenControllerState: KitchenControllerState = {
   cameraX: 0,
   targetCameraX: 0,
   progress: 0,
-  helmetRotation: 0,
-  helmetLift: 0,
   activeChefId: undefined
 };
 
@@ -70,9 +64,8 @@ export function mountKitchenScrollController(options: KitchenScrollControllerOpt
     options.bridge ??
     setupSceneBridge<KitchenControllerState, KitchenControllerEvents>(
       initialKitchenControllerState
-    );
+  );
   const config = options.config ?? kitchenSceneConfig;
-  const helmet = createHelmetMotion();
   const triggers = createTriggerRegistry<KitchenTriggerContext>();
   const onUpdate = options.onUpdate ?? (() => {});
   let activeChefId: KitchenChefId | undefined;
@@ -120,15 +113,11 @@ export function mountKitchenScrollController(options: KitchenScrollControllerOpt
 
     cameraX = clamp(cameraX, 0, metrics.maxScrollX);
     targetCameraX = clamp(targetCameraX, 0, metrics.maxScrollX);
-    helmet.step(delta, now);
     triggers.evaluate({ cameraX, config, metrics });
 
-    const helmetState = helmet.getState();
     const state: KitchenControllerState = {
       activeChefId,
       cameraX,
-      helmetLift: helmetState.lift,
-      helmetRotation: helmetState.rotation,
       progress: getProgress(metrics),
       targetCameraX
     };
@@ -216,10 +205,6 @@ export function mountKitchenScrollController(options: KitchenScrollControllerOpt
     },
     scrollBy(delta: number) {
       scrollToCameraX(targetCameraX + delta);
-    },
-    setHelmetHover(isHovered: boolean) {
-      const changed = helmet.setHover(isHovered);
-      if (changed) bridge.emit('helmet:hover', { isHovered });
     }
   };
 }
