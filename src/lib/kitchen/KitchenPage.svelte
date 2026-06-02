@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import VolumeMaxIcon from '$lib/VolumeMaxIcon.svelte';
+  import VolumeOffIcon from '$lib/VolumeOffIcon.svelte';
   import KitchenScene from './KitchenScene.svelte';
+
+  let isAudioMuted = $state(false);
+  const audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
+
+  function toggleAudioMuted() {
+    isAudioMuted = !isAudioMuted;
+  }
 
   onMount(() => {
     if (sessionStorage.getItem('kitchen-card-transition') !== '1') return;
@@ -42,13 +51,26 @@
 <main class="game-page">
   <header class="kitchen-topbar" aria-label="Navigazione cucina">
     <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù">FM</a>
+    <button
+      class="icon-button top-bar-audio"
+      type="button"
+      aria-label={audioLabel}
+      aria-pressed={isAudioMuted}
+      onclick={toggleAudioMuted}
+    >
+      {#if isAudioMuted}
+        <VolumeOffIcon class="volume-icon" />
+      {:else}
+        <VolumeMaxIcon class="volume-icon volume-max-icon" />
+      {/if}
+    </button>
     <a class="home-link" href="/?view=cards" aria-label="Torna alle card">
       <span class="close-icon" aria-hidden="true"></span>
     </a>
   </header>
 
   <section class="game-shell" aria-label="Scena parallasse della cucina">
-    <KitchenScene />
+    <KitchenScene {isAudioMuted} />
   </section>
 </main>
 
@@ -83,6 +105,7 @@
   }
 
   .logo,
+  .icon-button,
   .home-link {
     pointer-events: auto;
   }
@@ -109,6 +132,24 @@
     transition: color 160ms ease;
   }
 
+  .top-bar-audio {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .icon-button {
+    display: grid;
+    width: var(--button-icon-size);
+    height: var(--button-icon-size);
+    padding: 0;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--color-interactive-primary);
+    cursor: url('/cursors/retrogusto-cursor.svg') 5 5, pointer;
+    transition: color 160ms ease, opacity 0.2s ease;
+  }
+
   .close-icon,
   .close-icon::before {
     display: block;
@@ -132,15 +173,36 @@
 
   .logo:hover,
   .logo:focus-visible,
+  .icon-button:hover,
+  .icon-button:focus-visible,
   .home-link:hover,
   .home-link:focus-visible {
     color: var(--color-interactive-hover);
   }
 
   .logo:focus-visible,
+  .icon-button:focus-visible,
   .home-link:focus-visible {
     outline: 2px solid var(--color-focus-ring);
     outline-offset: var(--unit-4);
+  }
+
+  :global(.volume-icon) {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.2;
+  }
+
+  :global(.volume-max-icon) {
+    stroke-width: 2.33333;
+  }
+
+  :global(.volume-slash) {
+    stroke-width: 2.8;
   }
 
   .game-shell {

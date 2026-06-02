@@ -36,8 +36,9 @@
   const sceneController = createSceneController<KitchenControllerState, KitchenControllerEvents>(
     initialKitchenState
   );
+  let { isAudioMuted = false } = $props<{ isAudioMuted?: boolean }>();
   const { bridge } = sceneController;
-  const kitchenAssetVersion = '20260602-svg-control-4';
+  const kitchenAssetVersion = '20260602-svg-control-8';
   const kitchenAsset = (name: string) => `/assets/${name}?v=${kitchenAssetVersion}`;
   const toolShedMessage =
     'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
@@ -58,6 +59,13 @@
         destroy: () => void;
       }
     | undefined;
+  let toolShedAudioEl: HTMLAudioElement;
+  let standMixerAudioEl: HTMLAudioElement;
+  let constructionAudioEl: HTMLAudioElement;
+  let kitchenAmbientAudioEl: HTMLAudioElement;
+  let hasPlayedToolShedHover = false;
+  let hasPlayedStandMixerHover = false;
+  let isAmbientAudioStarted = false;
   let isDragging = $state(false);
   let isSceneLoaded = $state(false);
 
@@ -132,6 +140,28 @@
     ].join(';');
   }
 
+  function getStandMixerStyle() {
+    const x = 6690;
+    const width = 154;
+    const height = 160;
+    const y = 545 - height;
+
+    return [
+      `width: ${scenePx(width * sceneScale)}`,
+      `height: ${scenePx(height * sceneScale)}`,
+      `bottom: ${scenePx((sceneHeight - y - height) * sceneScale)}`,
+      `--stand-mixer-message-left: ${scenePx(168 * sceneScale)}`,
+      `--stand-mixer-message-top: ${scenePx(8 * sceneScale)}`,
+      `--stand-mixer-message-width: ${scenePx(322 * sceneScale)}`,
+      `--stand-mixer-message-padding: ${scenePx(20 * sceneScale)}`,
+      `--stand-mixer-message-font-size: ${scenePx(16 * sceneScale)}`,
+      `--stand-mixer-arrow-left: ${scenePx(168 * sceneScale)}`,
+      `--stand-mixer-arrow-top: ${scenePx(102 * sceneScale)}`,
+      `--stand-mixer-arrow-size: ${scenePx(18 * sceneScale)}`,
+      `transform: translate3d(${scenePx(x * sceneScale - cameraX * layerSpeed.foreground)}, 0, 0)`
+    ].join(';');
+  }
+
   function getChefStyle() {
     return [
       `left: ${scenePx(chefLeft)}`,
@@ -149,6 +179,7 @@
 
   function onPointerDown(event: PointerEvent) {
     isDragging = true;
+    void startAmbientAudio();
     kitchenController?.beginDrag(event.clientX);
     stageEl.setPointerCapture(event.pointerId);
   }
@@ -170,6 +201,83 @@
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
     scrollBy(event.key === 'ArrowLeft' ? -42 : 42);
+  }
+
+  function playHoverSound(audio: HTMLAudioElement | undefined, volume = 0.78) {
+    if (isAudioMuted || !audio) return;
+    audio.pause();
+    audio.currentTime = 0.35;
+    audio.volume = volume;
+    void audio.play().catch(() => {});
+  }
+
+  function getKitchenAmbientMix() {
+    if (!viewportWidth) return 0;
+
+    const standMixerCenterX = (6690 + 77) * sceneScale - cameraX * layerSpeed.foreground;
+    const fadeStartX = viewportWidth * 0.9;
+    const fadeEndX = viewportWidth * 0.46;
+
+    return clamp((fadeStartX - standMixerCenterX) / (fadeStartX - fadeEndX), 0, 1);
+  }
+
+  function setAmbientAudioVolumes() {
+    const mix = getKitchenAmbientMix();
+
+    if (constructionAudioEl) constructionAudioEl.volume = isAudioMuted ? 0 : 0.52 * (1 - mix);
+    if (kitchenAmbientAudioEl) kitchenAmbientAudioEl.volume = isAudioMuted ? 0 : 0.48 * mix;
+  }
+
+  async function startAmbientAudio() {
+    if (isAudioMuted || isAmbientAudioStarted || !constructionAudioEl || !kitchenAmbientAudioEl) {
+      return;
+    }
+
+    constructionAudioEl.loop = true;
+    kitchenAmbientAudioEl.loop = true;
+    setAmbientAudioVolumes();
+
+    try {
+      await Promise.all([constructionAudioEl.play(), kitchenAmbientAudioEl.play()]);
+      isAmbientAudioStarted = true;
+    } catch {
+      isAmbientAudioStarted = false;
+    }
+  }
+
+  $effect(() => {
+    setAmbientAudioVolumes();
+
+    if (!isAudioMuted) {
+      void startAmbientAudio();
+      return;
+    }
+
+    toolShedAudioEl?.pause();
+    standMixerAudioEl?.pause();
+    constructionAudioEl?.pause();
+    kitchenAmbientAudioEl?.pause();
+    isAmbientAudioStarted = false;
+  });
+
+  function playToolShedHoverSound() {
+    if (hasPlayedToolShedHover) return;
+    hasPlayedToolShedHover = true;
+    playHoverSound(toolShedAudioEl, 0.72);
+  }
+
+  function resetToolShedHoverSound() {
+    hasPlayedToolShedHover = false;
+  }
+
+  function playStandMixerHoverSound() {
+    if (hasPlayedStandMixerHover) return;
+    hasPlayedStandMixerHover = true;
+    playHoverSound(standMixerAudioEl, 0.35);
+  }
+
+  function resetStandMixerHoverSound() {
+    hasPlayedStandMixerHover = false;
   }
 
   onMount(() => {
@@ -197,8 +305,11 @@
       isSceneLoaded = true;
     });
     resources.addEventListener(window, 'keydown', onKeydown as EventListener);
+    void startAmbientAudio();
 
     return () => {
+      constructionAudioEl?.pause();
+      kitchenAmbientAudioEl?.pause();
       destroyed = true;
       sceneController.destroy();
     };
@@ -258,12 +369,43 @@
     role="button"
     tabindex="0"
     aria-label="Messaggio casetta degli attrezzi"
+    onpointerenter={playToolShedHoverSound}
+    onpointerleave={resetToolShedHoverSound}
     onpointerdown={(event) => event.stopPropagation()}
   >
     <img src={kitchenAsset('casetta_attrezzi_figma.svg')} alt="" draggable="false" />
-    <span class="tool-shed-hover-arrow" aria-hidden="true"></span>
-    <span class="tool-shed-hover-panel" aria-hidden="true" data-node-id="3928:1640">
-      <span class="tool-shed-hover-copy">{toolShedMessage}</span>
+    <span
+      class="object-shine"
+      style={`--shine-mask: url('${kitchenAsset('casetta_attrezzi_figma.svg')}')`}
+      aria-hidden="true"
+    ></span>
+    <span class="tool-shed-hover-dialogue" aria-hidden="true" data-node-id="3928:1640">
+      <span class="tool-shed-hover-arrow" aria-hidden="true"></span>
+      <span class="tool-shed-hover-panel">
+        <span class="tool-shed-hover-copy">{toolShedMessage}</span>
+      </span>
+    </span>
+  </div>
+
+  <div
+    class="parallax-layer reveal-layer stand-mixer-layer"
+    style={`${getStandMixerStyle()}; --reveal-delay: 470ms;`}
+    aria-hidden="true"
+    data-node-id="3622:4038"
+    onpointerenter={playStandMixerHoverSound}
+    onpointerleave={resetStandMixerHoverSound}
+  >
+    <img src={kitchenAsset('planetaria_figma.svg')} alt="" draggable="false" />
+    <span
+      class="object-shine"
+      style={`--shine-mask: url('${kitchenAsset('planetaria_figma.svg')}')`}
+      aria-hidden="true"
+    ></span>
+    <span class="stand-mixer-hover-dialogue" aria-hidden="true" data-node-id="3950:1617">
+      <span class="stand-mixer-hover-arrow" aria-hidden="true"></span>
+      <span class="stand-mixer-hover-panel">
+        <span class="stand-mixer-hover-copy">{toolShedMessage}</span>
+      </span>
     </span>
   </div>
 
@@ -292,6 +434,11 @@
     <img src={kitchenAsset('cucina_layer1b_depth_front.svg')} alt="" draggable="false" />
   </div>
 </section>
+
+<audio bind:this={toolShedAudioEl} src="/sound/toolbox.wav" preload="auto"></audio>
+<audio bind:this={standMixerAudioEl} src="/sound/mixer.mp3" preload="auto"></audio>
+<audio bind:this={constructionAudioEl} src="/sound/cantieresuoni.mp3" preload="auto"></audio>
+<audio bind:this={kitchenAmbientAudioEl} src="/sound/cucinasuoni.mp3" preload="auto"></audio>
 
 <style>
   .kitchen-stage {
@@ -426,23 +573,24 @@
     font-family: var(--font-text);
     text-align: left;
     opacity: 0;
-    transition: opacity 1ms linear 220ms;
+    transition: opacity 90ms ease;
     pointer-events: none;
   }
 
   .speech-bubble::before {
     position: absolute;
     z-index: 0;
-    left: -20px;
-    top: clamp(62px, 6.7vw, 88px);
-    width: 22px;
-    height: 22px;
+    left: 0;
+    top: clamp(72px, 7vw, 92px);
+    width: 18px;
+    height: 18px;
     background: var(--color-border-primary);
-    clip-path: polygon(0 50%, 100% 0, 100% 100%);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
     content: '';
     opacity: 0;
     scale: 0.72;
-    transform-origin: 100% 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: 50% 50%;
     transition:
       opacity 1ms linear 80ms,
       scale 220ms cubic-bezier(0.22, 1, 0.36, 1) 80ms;
@@ -509,11 +657,11 @@
   }
 
   .chef-button.is-dialogue-visible .speech-bubble-copy {
-    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) 20ms forwards;
+    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) 20ms both;
   }
 
   .chef-button.is-dialogue-visible .speech-bubble-meta {
-    animation: dialogueRevealX 225ms cubic-bezier(0.16, 1, 0.3, 1) 240ms forwards;
+    animation: dialogueRevealX 225ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
   }
 
   .foreground-layer {
@@ -530,7 +678,93 @@
     pointer-events: auto;
   }
 
-  .tool-shed-layer:focus-visible {
+  .stand-mixer-layer {
+    z-index: 7;
+    pointer-events: auto;
+  }
+
+  .stand-mixer-layer img {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: auto;
+    transform-origin: 56% 100%;
+    animation: standMixerIdle 3.5s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    will-change: transform;
+  }
+
+  .stand-mixer-layer:hover img,
+  .stand-mixer-layer:focus-visible img {
+    animation: standMixerHoverLanding 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .stand-mixer-hover-dialogue {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+  }
+
+  .stand-mixer-hover-panel {
+    position: absolute;
+    z-index: 2;
+    left: var(--stand-mixer-message-left);
+    top: var(--stand-mixer-message-top);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--stand-mixer-message-width);
+    padding: var(--stand-mixer-message-padding);
+    border: 2px solid #fcb531;
+    border-radius: var(--radius-s);
+    background: #f7f3ea;
+    color: var(--color-text-primary);
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+    will-change: clip-path;
+  }
+
+  .stand-mixer-hover-arrow {
+    position: absolute;
+    z-index: 1;
+    left: var(--stand-mixer-arrow-left);
+    top: var(--stand-mixer-arrow-top);
+    width: var(--stand-mixer-arrow-size);
+    height: var(--stand-mixer-arrow-size);
+    background: #fcb531;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .stand-mixer-hover-copy {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    font-family: "JetBrains Mono", var(--font-text);
+    font-size: var(--stand-mixer-message-font-size);
+    font-style: italic;
+    font-weight: 300;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .stand-mixer-layer:hover .stand-mixer-hover-dialogue,
+  .stand-mixer-layer:focus-visible .stand-mixer-hover-dialogue {
+    opacity: 1;
+  }
+
+  .stand-mixer-layer:hover .stand-mixer-hover-panel,
+  .stand-mixer-layer:focus-visible .stand-mixer-hover-panel {
+    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .tool-shed-layer:focus-visible,
+  .stand-mixer-layer:focus-visible {
     outline: none;
   }
 
@@ -541,9 +775,68 @@
     will-change: transform;
   }
 
+  .object-shine {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    -webkit-mask-image: var(--shine-mask);
+    mask-image: var(--shine-mask);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    transform-origin: 50% 50%;
+    animation: objectLightSweepOpacityTool 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: opacity;
+  }
+
+  .stand-mixer-layer .object-shine {
+    animation-name: objectLightSweepOpacityMixer;
+    animation-duration: 3.5s;
+  }
+
+  .object-shine::before {
+    position: absolute;
+    top: -34%;
+    left: 46%;
+    width: 18%;
+    height: 168%;
+    background:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.18),
+        #ffffff,
+        rgba(255, 255, 255, 0.24),
+        transparent 50%
+      );
+    content: '';
+    transform: translate3d(-430%, -34%, 0) rotate(35deg);
+    transform-origin: 50% 50%;
+    animation: objectLightSweepBeamTool 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: transform;
+  }
+
+  .stand-mixer-layer .object-shine::before {
+    animation-name: objectLightSweepBeamMixer;
+    animation-duration: 3.5s;
+  }
+
   .tool-shed-layer:hover img,
   .tool-shed-layer:focus-visible img {
     animation: toolShedHeavyLanding 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .tool-shed-hover-dialogue {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
   }
 
   .tool-shed-hover-panel {
@@ -561,11 +854,8 @@
     border-radius: var(--radius-s);
     background: #f7f3ea;
     color: var(--color-text-primary);
-    opacity: 0;
-    -webkit-clip-path: inset(0 100% 0 0);
-    clip-path: inset(0 100% 0 0);
-    transition: opacity 1ms linear 120ms;
-    pointer-events: none;
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
     will-change: clip-path;
   }
 
@@ -577,9 +867,7 @@
     width: var(--tool-shed-arrow-size);
     height: var(--tool-shed-arrow-size);
     background: #fcb531;
-    opacity: 0;
     transform: translate(-50%, -50%) rotate(45deg);
-    transition: opacity 1ms linear 120ms;
   }
 
   .tool-shed-hover-copy {
@@ -596,17 +884,14 @@
     word-break: break-word;
   }
 
-  .tool-shed-layer:hover .tool-shed-hover-panel,
-  .tool-shed-layer:focus-visible .tool-shed-hover-panel {
+  .tool-shed-layer:hover .tool-shed-hover-dialogue,
+  .tool-shed-layer:focus-visible .tool-shed-hover-dialogue {
     opacity: 1;
-    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    transition-delay: 0ms;
   }
 
-  .tool-shed-layer:hover .tool-shed-hover-arrow,
-  .tool-shed-layer:focus-visible .tool-shed-hover-arrow {
-    opacity: 1;
-    transition-delay: 0ms;
+  .tool-shed-layer:hover .tool-shed-hover-panel,
+  .tool-shed-layer:focus-visible .tool-shed-hover-panel {
+    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .foreground-front-layer {
@@ -632,6 +917,68 @@
     to {
       -webkit-clip-path: inset(0 0 0 0);
       clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @keyframes objectLightSweepOpacityTool {
+    0%,
+    52% {
+      opacity: 0;
+    }
+
+    63% {
+      opacity: 0.8;
+    }
+
+    90% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes objectLightSweepBeamTool {
+    0%,
+    52% {
+      transform: translate3d(-430%, -34%, 0) rotate(35deg);
+    }
+
+    90%,
+    100% {
+      transform: translate3d(430%, 34%, 0) rotate(35deg);
+    }
+  }
+
+  @keyframes objectLightSweepOpacityMixer {
+    0%,
+    58% {
+      opacity: 0;
+    }
+
+    66% {
+      opacity: 0.8;
+    }
+
+    78% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes objectLightSweepBeamMixer {
+    0%,
+    58% {
+      transform: translate3d(-430%, -34%, 0) rotate(35deg);
+    }
+
+    78%,
+    100% {
+      transform: translate3d(430%, 34%, 0) rotate(35deg);
     }
   }
 
@@ -677,6 +1024,68 @@
     }
   }
 
+  @keyframes standMixerIdle {
+    0%,
+    48%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    58% {
+      transform: translate3d(0, -2px, 0) rotate(-1.1deg);
+    }
+
+    69% {
+      transform: translate3d(0, 1px, 0) rotate(0.7deg);
+    }
+
+    82% {
+      transform: translate3d(0, -0.5px, 0) rotate(-0.35deg);
+    }
+  }
+
+  @keyframes standMixerHoverLanding {
+    0% {
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    }
+
+    12% {
+      transform: translate3d(0, 0, 0) rotate(2.5deg) scale(1.025, 0.975);
+    }
+
+    28% {
+      transform: translate3d(0, -14px, 0) rotate(-6deg) scale(0.985, 1.018);
+    }
+
+    43% {
+      transform: translate3d(1px, -24px, 0) rotate(-9deg) scale(0.99, 1.012);
+    }
+
+    57% {
+      transform: translate3d(0, -9px, 0) rotate(-4deg) scale(1);
+    }
+
+    67% {
+      transform: translate3d(0, 0, 0) rotate(1.8deg) scale(1.075, 0.91);
+    }
+
+    76% {
+      transform: translate3d(0, -5px, 0) rotate(-2.2deg) scale(0.985, 1.025);
+    }
+
+    84% {
+      transform: translate3d(0, 0, 0) rotate(0.9deg) scale(1.035, 0.955);
+    }
+
+    92% {
+      transform: translate3d(0, -1.5px, 0) rotate(-0.45deg) scale(0.996, 1.006);
+    }
+
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    }
+  }
+
   @keyframes titleLetterIn {
     to {
       opacity: 1;
@@ -705,10 +1114,10 @@
     }
 
     .speech-bubble::before {
-      left: -18px;
+      left: 0;
       top: 72px;
-      width: 22px;
-      height: 22px;
+      width: 18px;
+      height: 18px;
     }
 
     .speech-bubble-copy {
@@ -739,6 +1148,9 @@
     .reveal-object,
     .tool-shed-layer:hover img,
     .tool-shed-layer:focus-visible img,
+    .stand-mixer-layer img,
+    .stand-mixer-layer:hover img,
+    .stand-mixer-layer:focus-visible img,
     .scene-title span {
       opacity: 1;
       transform: none;
@@ -749,8 +1161,13 @@
     .speech-bubble::before,
     .speech-bubble-copy,
     .speech-bubble-meta,
+    .object-shine,
+    .tool-shed-hover-dialogue,
     .tool-shed-hover-panel,
-    .tool-shed-hover-arrow {
+    .tool-shed-hover-arrow,
+    .stand-mixer-hover-dialogue,
+    .stand-mixer-hover-panel,
+    .stand-mixer-hover-arrow {
       transition: none;
       animation: none;
     }
@@ -758,7 +1175,9 @@
     .chef-button.is-dialogue-visible .speech-bubble-copy,
     .chef-button.is-dialogue-visible .speech-bubble-meta,
     .tool-shed-layer:hover .tool-shed-hover-panel,
-    .tool-shed-layer:focus-visible .tool-shed-hover-panel {
+    .tool-shed-layer:focus-visible .tool-shed-hover-panel,
+    .stand-mixer-layer:hover .stand-mixer-hover-panel,
+    .stand-mixer-layer:focus-visible .stand-mixer-hover-panel {
       -webkit-clip-path: inset(0 0 0 0);
       clip-path: inset(0 0 0 0);
     }

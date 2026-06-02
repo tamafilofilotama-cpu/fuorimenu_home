@@ -6,7 +6,7 @@
 #Group_5 {
   transform-box: fill-box;
   transform-origin: center bottom;
-  animation: toolHintWiggle 2.8s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+  animation: toolHintWiggle 1.9s cubic-bezier(0.45, 0, 0.2, 1) infinite;
 }
 
 #Group_2 {
@@ -39,24 +39,24 @@ svg:hover #Group_5 {
 
 @keyframes toolHintWiggle {
   0%,
-  70%,
+  48%,
   100% {
     transform: translateY(0) rotate(0deg);
   }
 
-  76% {
+  58% {
     transform: translateY(-3px) rotate(-2deg);
   }
 
-  82% {
+  68% {
     transform: translateY(1px) rotate(1.4deg);
   }
 
-  88% {
+  78% {
     transform: translateY(-1px) rotate(-0.8deg);
   }
 
-  94% {
+  88% {
     transform: translateY(0) rotate(0deg);
   }
 }
