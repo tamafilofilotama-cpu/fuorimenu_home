@@ -173,10 +173,11 @@
   }
 
   function onWheel(event: WheelEvent) {
-    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
 
     event.preventDefault();
-    scrollBy(event.deltaX * 1.05);
+    void startAmbientAudio();
+    scrollBy(delta * 1.05);
   }
 
   function onPointerDown(event: PointerEvent) {
@@ -707,7 +708,7 @@
     width: 100%;
     height: auto;
     transform-origin: 56% 100%;
-    animation: standMixerIdle 3.5s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    animation: standMixerIdle 2.4s cubic-bezier(0.45, 0, 0.2, 1) infinite;
     will-change: transform;
   }
 
@@ -812,7 +813,7 @@
 
   .stand-mixer-layer .object-shine {
     animation-name: objectLightSweepOpacityMixer;
-    animation-duration: 3.5s;
+    animation-duration: 2.4s;
   }
 
   .object-shine::before {
@@ -839,7 +840,7 @@
 
   .stand-mixer-layer .object-shine::before {
     animation-name: objectLightSweepBeamMixer;
-    animation-duration: 3.5s;
+    animation-duration: 2.4s;
   }
 
   .tool-shed-layer:hover img,
@@ -1043,21 +1044,21 @@
 
   @keyframes standMixerIdle {
     0%,
-    48%,
+    42%,
     100% {
       transform: translate3d(0, 0, 0) rotate(0deg);
     }
 
-    58% {
-      transform: translate3d(0, -2px, 0) rotate(-1.1deg);
+    52% {
+      transform: translate3d(0, -3px, 0) rotate(-1.6deg);
     }
 
-    69% {
-      transform: translate3d(0, 1px, 0) rotate(0.7deg);
+    64% {
+      transform: translate3d(0, 0, 0) rotate(0.9deg);
     }
 
-    82% {
-      transform: translate3d(0, -0.5px, 0) rotate(-0.35deg);
+    78% {
+      transform: translate3d(0, -0.8px, 0) rotate(-0.5deg);
     }
   }
 

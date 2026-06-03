@@ -82,7 +82,7 @@
   const backgroundAudio: AudioCueConfig = {
     src: '/sound/background_home.mp3',
     startTime: 0,
-    targetVolume: 0.26,
+    targetVolume: 1,
     fadeInDuration: 1.2,
     loop: true
   };
@@ -2087,7 +2087,7 @@
     display: grid;
     justify-items: center;
     align-items: center;
-    gap: 6px;
+    gap: 0;
     width: min(1240px, calc(100vw - 24px));
     padding-block: clamp(18px, 4vh, 64px);
     overflow: visible;
@@ -2101,7 +2101,7 @@
     justify-content: center;
     max-width: 100%;
     overflow: visible;
-    padding: 0.12em 0.1em 0.16em;
+    padding: 0.12em 0.1em 0.04em;
     font-family: var(--font-display);
     font-size: clamp(72px, 12vw, 160px);
     font-weight: 700;
@@ -2592,7 +2592,7 @@
     .reel-card    { width: min(38vw, 148px); }
     .next-screen  { padding: var(--layout-page-gutter-mobile); }
     .brand-word   { font-size: clamp(40px, 10.5vw, 76px); }
-    .brand-lockup { gap: 8px; }
+    .brand-lockup { gap: 0; }
     .brand-subtitle { font-size: 24px; }
     .brand-scroll-cue { top: calc(100% + clamp(58px, 11vh, 96px)); }
     .floating-raviolo { width: clamp(86px, 28vw, 124px); }

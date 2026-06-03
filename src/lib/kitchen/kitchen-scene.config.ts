@@ -8,7 +8,7 @@ export const kitchenSceneConfig = {
   foregroundSvgHeight: 875,
   foregroundBottomOffset: 0,
   floorHeight: 225,
-  floorBottomOffset: -28,
+  floorBottomOffset: -96,
   floorTileWidth: 224,
   chef: {
     id: 'carlo' as KitchenChefId,
