@@ -28,10 +28,7 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
   const cues = new Map<Id, AudioCueConfig>();
   const fadeTweens = new Map<Id, gsap.core.Tween>();
   const loopFrames = new Map<Id, number>();
-  const sources = new Map<Id, MediaElementAudioSourceNode>();
-  const gains = new Map<Id, GainNode>();
   const fadeMotion = { ...defaultFade, ...options.fade };
-  let audioContext: AudioContext | undefined;
   let unlocked = false;
 
   function registerAudioCue(id: Id, config: AudioCueConfig) {
@@ -55,26 +52,6 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
   function cancelFade(id: Id) {
     fadeTweens.get(id)?.kill();
     fadeTweens.delete(id);
-  }
-
-  function getContext() {
-    audioContext ??= new AudioContext();
-    return audioContext;
-  }
-
-  function setupOutput(id: Id) {
-    const config = cues.get(id);
-    const audio = config?.el;
-    if (!config || !audio || sources.has(id)) return;
-
-    const context = getContext();
-    const source = context.createMediaElementSource(audio);
-    const gain = context.createGain();
-    gain.gain.value = config.outputGain ?? 1;
-    source.connect(gain);
-    gain.connect(context.destination);
-    sources.set(id, source);
-    gains.set(id, gain);
   }
 
   function watchLoop(id: Id) {
@@ -119,6 +96,10 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
     );
   }
 
+  function getTargetVolume(config: AudioCueConfig) {
+    return Math.min(1, config.targetVolume * (config.outputGain ?? 1));
+  }
+
   async function play(id: Id) {
     const config = cues.get(id);
     const audio = config?.el;
@@ -129,14 +110,13 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
     audio.loop = config.loop ?? false;
     audio.pause();
     audio.currentTime = config.startTime ?? 0;
-    setupOutput(id);
-    await audioContext?.resume();
-    audio.volume = config.fadeIn === false ? config.targetVolume : 0;
+    const targetVolume = getTargetVolume(config);
+    audio.volume = config.fadeIn === false ? targetVolume : 0;
 
     try {
       await audio.play();
       watchLoop(id);
-      if (config.fadeIn !== false) fade(id, config.targetVolume, undefined, config.fadeInDuration);
+      if (config.fadeIn !== false) fade(id, targetVolume, undefined, config.fadeInDuration);
       return true;
     } catch {
       return false;
@@ -167,26 +147,30 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
   async function unlock(ids: readonly Id[] = Array.from(cues.keys())) {
     if (unlocked) return true;
 
-    const audios = ids
-      .map((id) => cues.get(id)?.el)
-      .filter(Boolean) as HTMLAudioElement[];
-    if (!audios.length) return false;
+    const entries = ids
+      .map((id) => ({ audio: cues.get(id)?.el, config: cues.get(id) }))
+      .filter((entry): entry is { audio: HTMLAudioElement; config: AudioCueConfig } => Boolean(entry.audio));
+    if (!entries.length) return false;
 
     try {
-      ids.forEach(setupOutput);
-      await audioContext?.resume();
-      await Promise.all(
-        audios.map(async (audio) => {
+      const results = await Promise.allSettled(
+        entries.map(async ({ audio, config }) => {
+          const previousMuted = audio.muted;
           const previousVolume = audio.volume;
-          audio.volume = 0;
-          await audio.play();
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = previousVolume;
+          try {
+            audio.muted = true;
+            audio.volume = 0;
+            await audio.play();
+            audio.pause();
+            audio.currentTime = config.startTime ?? 0;
+          } finally {
+            audio.volume = previousVolume;
+            audio.muted = previousMuted;
+          }
         })
       );
-      unlocked = true;
-      return true;
+      unlocked = results.some((result) => result.status === 'fulfilled');
+      return unlocked;
     } catch {
       unlocked = false;
       return false;
@@ -201,10 +185,6 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
       audio?.pause();
     });
     cues.clear();
-    sources.clear();
-    gains.clear();
-    void audioContext?.close();
-    audioContext = undefined;
   }
 
   return {

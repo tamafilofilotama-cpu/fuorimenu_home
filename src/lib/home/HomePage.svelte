@@ -883,6 +883,7 @@
       stopAllHomeAudio();
     } else {
       void startBackgroundAudio();
+      void unlockAmbientAudio();
     }
   }
 
@@ -892,8 +893,8 @@
     activeAudioGateChoice = choice;
     isAudioGateOpening = true;
     if (!nextMuted) {
-      await unlockAmbientAudio();
       await startBackgroundAudio();
+      void unlockAmbientAudio();
     }
     sceneResources.addTimeout(revealIntroLetters, 760);
     sceneResources.addTimeout(() => {
@@ -902,7 +903,7 @@
   }
 
   async function unlockAmbientAudio() {
-    await audioCues.unlock(homeAudioIds);
+    await audioCues.unlock(audioRoles);
   }
 
   async function startBackgroundAudio() {
@@ -1171,6 +1172,7 @@
       queueFlow(normalizeWheelDelta(e));
     };
     const onPointerDownAudioUnlock = () => {
+      if (isAudioGateVisible || isAudioMuted) return;
       void unlockAmbientAudio();
     };
     const onKeydown = (e: KeyboardEvent) => {
@@ -1180,7 +1182,7 @@
         e.preventDefault();
         return;
       }
-      void unlockAmbientAudio();
+      if (!isAudioMuted) void unlockAmbientAudio();
       const step = keyFlowSteps[e.key];
       if (step !== undefined) { e.preventDefault(); queueFlow(step); }
     };
@@ -1470,7 +1472,7 @@
 <audio
   bind:this={backgroundAudio.el}
   src={backgroundAudio.src}
-  preload="none"
+  preload="auto"
   aria-hidden="true"
 ></audio>
 
@@ -1478,7 +1480,7 @@
   <audio
     bind:this={config.el}
     src={config.src}
-    preload="none"
+    preload="auto"
     aria-hidden="true"
   ></audio>
 {/each}
@@ -2353,7 +2355,7 @@
 
   .role-card:hover .role-card-bg-overlay,
   .role-card:focus-visible .role-card-bg-overlay {
-    opacity: 0.18;
+    opacity: 0.34;
   }
 
   .role-hover-panel {

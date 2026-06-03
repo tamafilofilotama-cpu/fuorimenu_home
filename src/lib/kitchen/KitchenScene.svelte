@@ -66,6 +66,8 @@
   let hasPlayedToolShedHover = false;
   let hasPlayedStandMixerHover = false;
   let isAmbientAudioStarted = false;
+  let toolShedAudioContext: AudioContext | undefined;
+  let toolShedAudioSource: MediaElementAudioSourceNode | undefined;
   let isDragging = $state(false);
   let isSceneLoaded = $state(false);
 
@@ -200,7 +202,19 @@
   function onKeydown(event: KeyboardEvent) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
+    void startAmbientAudio();
     scrollBy(event.key === 'ArrowLeft' ? -42 : 42);
+  }
+
+  function boostToolShedAudio() {
+    if (!toolShedAudioEl || toolShedAudioSource) return;
+
+    toolShedAudioContext = new AudioContext();
+    toolShedAudioSource = toolShedAudioContext.createMediaElementSource(toolShedAudioEl);
+    const gain = toolShedAudioContext.createGain();
+    gain.gain.value = 2.8;
+    toolShedAudioSource.connect(gain);
+    gain.connect(toolShedAudioContext.destination);
   }
 
   function playHoverSound(audio: HTMLAudioElement | undefined, volume = 0.78) {
@@ -224,7 +238,7 @@
   function setAmbientAudioVolumes() {
     const mix = getKitchenAmbientMix();
 
-    if (constructionAudioEl) constructionAudioEl.volume = isAudioMuted ? 0 : 0.52 * (1 - mix);
+    if (constructionAudioEl) constructionAudioEl.volume = isAudioMuted ? 0 : 0.24 * (1 - mix);
     if (kitchenAmbientAudioEl) kitchenAmbientAudioEl.volume = isAudioMuted ? 0 : 0.48 * mix;
   }
 
@@ -263,6 +277,8 @@
   function playToolShedHoverSound() {
     if (hasPlayedToolShedHover) return;
     hasPlayedToolShedHover = true;
+    boostToolShedAudio();
+    void toolShedAudioContext?.resume();
     playHoverSound(toolShedAudioEl, 0.72);
   }
 
@@ -273,7 +289,7 @@
   function playStandMixerHoverSound() {
     if (hasPlayedStandMixerHover) return;
     hasPlayedStandMixerHover = true;
-    playHoverSound(standMixerAudioEl, 0.35);
+    playHoverSound(standMixerAudioEl, 0.44);
   }
 
   function resetStandMixerHoverSound() {
@@ -310,6 +326,7 @@
     return () => {
       constructionAudioEl?.pause();
       kitchenAmbientAudioEl?.pause();
+      void toolShedAudioContext?.close();
       destroyed = true;
       sceneController.destroy();
     };
@@ -435,7 +452,7 @@
   </div>
 </section>
 
-<audio bind:this={toolShedAudioEl} src="/sound/toolbox.wav" preload="auto"></audio>
+<audio bind:this={toolShedAudioEl} src="/sound/toolbox.mp3" preload="auto"></audio>
 <audio bind:this={standMixerAudioEl} src="/sound/mixer.mp3" preload="auto"></audio>
 <audio bind:this={constructionAudioEl} src="/sound/cantieresuoni.mp3" preload="auto"></audio>
 <audio bind:this={kitchenAmbientAudioEl} src="/sound/cucinasuoni.mp3" preload="auto"></audio>
