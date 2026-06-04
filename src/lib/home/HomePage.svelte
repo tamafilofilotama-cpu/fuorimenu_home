@@ -23,6 +23,7 @@
   let roleCards: HTMLElement[] = [];
   let introLetters: HTMLElement[] = [];
   let nextLetters: HTMLElement[] = [];
+  let audioGateCopyLetters: HTMLElement[] = [];
   let introEl: HTMLElement;
   let audioGateButtonEl = $state<HTMLElement>();
   let isAudioGateVisible = $state(true);
@@ -107,13 +108,13 @@
   }
 
   function parseMessage(msg: string, accentWord: string) {
-    const start = msg.indexOf(accentWord);
-    const end   = start + accentWord.length;
+    const start = accentWord ? msg.indexOf(accentWord) : -1;
+    const end   = start >= 0 ? start + accentWord.length : -1;
     return msg.split('').map((letter, i) => ({
       index:    i,
       letter,
       isSpace:  letter === ' ',
-      isAccent: i >= start && i < end
+      isAccent: start >= 0 && i >= start && i < end
     }));
   }
 
@@ -142,12 +143,45 @@
 
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina delle olimpiadi...';
   const nextMessage     = 'Incontra le persone che hanno reso tutto questo possibile.';
-  const audioGateMessage = "Si consiglia l’uso dell’audio per una migliore esperienza";
+  const audioGateMessage = "Si consiglia l’uso dell’audio per\u00a0una\u00a0migliore esperienza";
   const brandWord       = 'Fuorimenù';
   const brandSubtitle   = 'Dentro le cucine di Milano Cortina 2026';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
+  const audioGateCharacters = parseMessage(audioGateMessage, '');
   const introWords      = groupWords(introCharacters);
+  const audioGateWords  = groupWords(audioGateCharacters);
+  const audioGateOrbitDashCount = 25;
+  const audioGateOrbitDashArc = 7.2;
+  const audioGateOrbitRadius = 49;
+  const audioGateCopyRevealDuration = 0.64;
+  const audioGateCopyRevealStagger = 0.028;
+  const audioGateCopyRevealTotal =
+    audioGateCopyRevealDuration + Math.max(audioGateCharacters.length - 1, 0) * audioGateCopyRevealStagger;
+  const audioGateDashRevealDuration = 0.42;
+  const audioGateDashRevealStagger =
+    (audioGateCopyRevealTotal - audioGateDashRevealDuration) / Math.max(audioGateOrbitDashCount - 1, 1);
+
+  function getOrbitPoint(angle: number) {
+    const radians = ((angle - 90) * Math.PI) / 180;
+    return {
+      x: 50 + audioGateOrbitRadius * Math.cos(radians),
+      y: 50 + audioGateOrbitRadius * Math.sin(radians)
+    };
+  }
+
+  function getOrbitDashPath(index: number) {
+    const centerAngle = (360 / audioGateOrbitDashCount) * index;
+    const start = getOrbitPoint(centerAngle - audioGateOrbitDashArc / 2);
+    const end = getOrbitPoint(centerAngle + audioGateOrbitDashArc / 2);
+    return `M ${fixed(start.x, 3)} ${fixed(start.y, 3)} A ${audioGateOrbitRadius} ${audioGateOrbitRadius} 0 0 1 ${fixed(end.x, 3)} ${fixed(end.y, 3)}`;
+  }
+
+  const audioGateOrbitDashes = Array.from({ length: audioGateOrbitDashCount }, (_, index) => ({
+    index,
+    path: getOrbitDashPath(index),
+    delayMs: Math.max(0, audioGateDashRevealStagger * index * 1000)
+  }));
 
   const brandLetters = brandWord.split('').map((letter, i) => ({ letter, i }));
   const brandLetterIndexes = brandLetters.map((_, i) => i);
@@ -812,6 +846,26 @@
     );
   }
 
+  function revealAudioGateCopyLetters() {
+    const letters = audioGateCopyLetters.filter((el): el is HTMLElement => Boolean(el));
+    if (!letters.length) return;
+    animations.kill('audioGateCopyReveal');
+    gsap.set(letters, {
+      '--gate-copy-letter-reveal': 0,
+      '--gate-copy-reveal-y': '12px'
+    });
+    animations.registerAnimationCue(
+      'audioGateCopyReveal',
+      gsap.to(letters, {
+        '--gate-copy-letter-reveal': 1,
+        '--gate-copy-reveal-y': '0px',
+        duration: audioGateCopyRevealDuration,
+        ease: 'power3.out',
+        stagger: audioGateCopyRevealStagger
+      })
+    );
+  }
+
   function reloadHome(event: MouseEvent) {
     event.preventDefault();
     const brandUrl = '/?view=brand';
@@ -886,18 +940,31 @@
     isAudioMuted = !isAudioMuted;
   }
 
+  function setAudioGateButtonTransitionVars() {
+    if (!audioGateButtonEl) return;
+    const rect = audioGateButtonEl.getBoundingClientRect();
+    const horizontalReach = Math.max(rect.left + rect.width / 2, window.innerWidth - rect.left - rect.width / 2);
+    const verticalReach = Math.max(rect.top + rect.height / 2, window.innerHeight - rect.top - rect.height / 2);
+    const scale = Math.max((horizontalReach * 2) / rect.width, (verticalReach * 2) / rect.height) * 1.18;
+
+    setCssVars(audioGateButtonEl, {
+      '--gate-button-screen-scale': fixed(scale)
+    });
+  }
+
   async function openAudioGate(nextMuted = isAudioMuted) {
     if (isAudioGateOpening) return;
+    setAudioGateButtonTransitionVars();
     isAudioMuted = nextMuted;
     isAudioGateOpening = true;
     if (!nextMuted) {
       await startBackgroundAudio();
       void unlockAmbientAudio();
     }
-    sceneResources.addTimeout(revealIntroLetters, 760);
+    sceneResources.addTimeout(revealIntroLetters, 1700);
     sceneResources.addTimeout(() => {
       isAudioGateVisible = false;
-    }, 1280);
+    }, 2050);
   }
 
   async function unlockAmbientAudio() {
@@ -1198,6 +1265,7 @@
         '--intro-reveal-y': '12px'
       });
     }
+    revealAudioGateCopyLetters();
     animations.addTicker(moveFloatingAssets);
     sceneResources.addEventListener(window, 'wheel', onWheel as EventListener, { passive: false });
     sceneResources.addEventListener(window, 'keydown', onKeydown as EventListener);
@@ -1229,7 +1297,17 @@
     data-node-id="3266:3591"
   >
     <div class="audio-gate-content">
-      <div class="audio-gate-orbit" aria-hidden="true" data-node-id="4109:3541"></div>
+      <div class="audio-gate-orbit" aria-hidden="true" data-node-id="4109:3541">
+        <svg class="audio-gate-orbit-line" viewBox="0 0 100 100" focusable="false">
+          {#each audioGateOrbitDashes as dash (dash.index)}
+            <path
+              class="audio-gate-orbit-dash"
+              d={dash.path}
+              style={`--orbit-dash-index: ${dash.index}; --orbit-dash-delay: ${dash.delayMs}ms`}
+            />
+          {/each}
+        </svg>
+      </div>
       <div class="audio-gate-stack">
         <button
           class="icon-button audio-gate-audio-button"
@@ -1245,7 +1323,21 @@
             <VolumeMaxIcon class="volume-icon volume-max-icon" />
           {/if}
         </button>
-        <p id="audio-gate-copy" data-node-id="4109:3572">{audioGateMessage}</p>
+        <p id="audio-gate-copy" aria-label={audioGateMessage} data-node-id="4109:3572">
+          {#each audioGateWords as group (group.index)}
+            {#if group.type === 'space'}
+              <span class="audio-gate-copy-space" aria-hidden="true">&nbsp;</span>
+            {:else}
+              <span class="audio-gate-copy-word" aria-hidden="true">
+                {#each group.characters as { letter, index } (index)}
+                  <span bind:this={audioGateCopyLetters[index]} class="audio-gate-copy-letter">
+                    {letter}
+                  </span>
+                {/each}
+              </span>
+            {/if}
+          {/each}
+        </p>
         <div class="audio-gate-button-frame" data-node-id="4109:3579">
           <button
             bind:this={audioGateButtonEl}
@@ -1557,11 +1649,9 @@
     color: var(--color-text-inverse);
     cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, auto;
     opacity: 1;
-    transition: opacity 180ms ease 720ms;
   }
 
   .audio-gate.is-opening {
-    opacity: 0;
     pointer-events: none;
   }
 
@@ -1569,18 +1659,17 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: min(calc(100vw - 48px), 634px);
-    max-height: calc(100svh - 48px);
-    aspect-ratio: 634 / 702;
+    width: min(calc(100vw - 48px), calc(100svh - 48px), 634px);
+    aspect-ratio: 1;
     transform: translate(-50%, -50%);
   }
 
   .audio-gate-orbit {
     position: absolute;
-    top: 9.6866%;
-    left: 0;
+    inset: 0;
     width: 100%;
-    aspect-ratio: 1;
+    height: 100%;
+    left: 0;
     border-radius: 50%;
     background: var(--color-text-primary);
     opacity: 1;
@@ -1588,63 +1677,147 @@
     will-change: transform, opacity;
   }
 
-  .audio-gate-orbit::after {
+  .audio-gate-orbit-line {
     position: absolute;
     inset: 0;
-    border: 2px dashed var(--color-text-inverse);
-    border-radius: inherit;
-    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    transform: rotate(0deg);
+    transform-origin: center;
+    animation: audioGateOrbitSpin 56s linear 1.15s infinite;
   }
 
-  .audio-gate-marker {
+  .audio-gate-orbit-dash {
+    fill: none;
+    stroke: var(--color-text-inverse);
+    stroke-width: 0.32;
+    stroke-linecap: round;
+    opacity: 0;
+    animation: audioGateDashIn 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--orbit-dash-delay, 0ms);
+  }
+
+  @keyframes audioGateDashIn {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes audioGateOrbitSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .audio-gate-orbit-line {
+      animation: none;
+    }
+
+    .audio-gate-orbit-dash {
+      animation: none;
+      opacity: 1;
+    }
+
+    .audio-gate-copy-letter {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .audio-gate-stack {
     position: absolute;
-    z-index: 2;
-    top: 34.543%;
-    left: 47.161%;
-    display: block;
-    width: 5.836%;
-    aspect-ratio: 1;
-    border-radius: var(--radius-xs);
-    background: #d9d9d9;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(var(--spacing-7), 5.8vw, var(--spacing-10));
+    padding: 12%;
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .audio-gate .audio-gate-audio-button {
+    color: var(--color-text-inverse);
+    cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, pointer;
+  }
+
+  .audio-gate .audio-gate-audio-button:hover,
+  .audio-gate .audio-gate-audio-button:focus-visible {
+    color: var(--color-text-inverse);
+    opacity: 0.72;
+  }
+
+  .audio-gate .audio-gate-audio-button:focus-visible {
+    outline-color: var(--color-text-inverse);
   }
 
   .audio-gate-content p {
-    position: absolute;
-    z-index: 2;
-    top: 53.276%;
-    left: 50%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0;
     width: max-content;
-    max-width: min(calc(100vw - 32px), 86.278%);
+    max-width: min(calc(100vw - 64px), 72%);
     margin: 0;
     color: var(--color-text-inverse);
     font-family: var(--font-text);
     font-size: 16px;
     font-weight: 400;
-    line-height: normal;
+    line-height: 1.4;
     text-align: center;
-    white-space: nowrap;
+    white-space: normal;
     overflow-wrap: anywhere;
-    transform: translateX(-50%);
-    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .audio-gate-copy-word {
+    display: inline-flex;
+    white-space: nowrap;
+  }
+
+  .audio-gate-copy-space {
+    display: inline-block;
+    width: 0.58em;
+  }
+
+  .audio-gate-copy-letter {
+    display: inline-block;
+    opacity: var(--gate-copy-letter-reveal, 0);
+    transform: translateY(var(--gate-copy-reveal-y, 12px));
+    will-change: opacity, transform;
   }
 
   .audio-gate-button-frame {
-    position: absolute;
-    z-index: 3;
-    top: 64.53%;
-    left: 36.435%;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    width: 27.287%;
-    min-width: 144px;
+    width: 173px;
+    max-width: 42%;
     aspect-ratio: 173 / 68;
     perspective: 900px;
     perspective-origin: 50% 50%;
-    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .audio-gate-button-frame::before {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--color-text-inverse);
+    border-radius: var(--radius-full);
+    background: var(--color-text-strong);
+    content: '';
+    opacity: 1;
+    transform: translate(0, 0);
   }
 
   .audio-gate-button {
+    --gate-button-screen-scale: 18;
+
+    position: relative;
+    overflow: hidden;
     display: grid;
     width: 100%;
     height: 100%;
@@ -1657,19 +1830,20 @@
     box-shadow: none;
     cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, pointer;
     transform:
-      translateZ(var(--gate-hover-z, 0px))
+      translate(var(--button-lift-x, 0px), var(--button-lift-y, 0px))
       rotateX(var(--gate-tilt-x, 0deg))
       rotateY(var(--gate-tilt-y, 0deg))
       scale(var(--button-hover-scale, 1));
     transition:
       background-color 160ms ease,
       color 160ms ease,
-      transform 180ms ease-out,
-      box-shadow 180ms ease;
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform;
   }
 
   .audio-gate-button-label {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1683,11 +1857,18 @@
 
   .audio-gate-button:hover,
   .audio-gate-button:focus-visible {
-    --gate-hover-z: 18px;
-    --button-hover-scale: 1.04;
+    --button-lift-x: -8px;
+    --button-lift-y: -8px;
+    --button-hover-scale: 1.02;
     background: var(--color-text-inverse);
     color: var(--color-text-primary);
-    box-shadow: 0 20px 46px rgb(var(--shadow-dark-rgb) / 0.24);
+    box-shadow: none;
+  }
+
+  .audio-gate-button:active {
+    --button-lift-x: -1px;
+    --button-lift-y: -1px;
+    --button-hover-scale: 1;
   }
 
   .audio-gate-button:hover .audio-gate-button-label,
@@ -1701,14 +1882,60 @@
   }
 
   .audio-gate.is-opening .audio-gate-orbit {
-    opacity: 0;
-    transform: scale(1.14);
+    transform: scale(1.02);
   }
 
-  .audio-gate.is-opening .audio-gate-content p,
-  .audio-gate.is-opening .audio-gate-button-frame {
+  .audio-gate.is-opening .audio-gate-orbit-line {
+    animation-play-state: paused;
+  }
+
+  .audio-gate.is-opening .audio-gate-orbit-dash {
+    opacity: 1;
+    animation: audioGateDashOut 320ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+    animation-delay: calc(var(--orbit-dash-index, 0) * 22ms);
+  }
+
+  @keyframes audioGateDashOut {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .audio-gate.is-opening .audio-gate-audio-button,
+  .audio-gate.is-opening .audio-gate-content p {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(-6px);
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+
+  .audio-gate.is-opening .audio-gate-button-frame::before {
+    opacity: 0;
+  }
+
+  .audio-gate.is-opening .audio-gate-button-frame {
+    z-index: 5;
+  }
+
+  .audio-gate.is-opening .audio-gate-button {
+    border-color: var(--color-surface-page);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-page);
+    color: transparent;
+    transform: scale(1);
+    animation: audioGateButtonExpand 860ms cubic-bezier(0.84, 0, 0.16, 1) 760ms forwards;
+  }
+
+  .audio-gate.is-opening .audio-gate-button-label {
+    opacity: 0;
+  }
+
+  @keyframes audioGateButtonExpand {
+    to {
+      border-radius: 0;
+      transform: scale(var(--gate-button-screen-scale));
+    }
   }
 
   .home {
@@ -2539,8 +2766,7 @@
       width: calc(100vw - var(--spacing-8));
     }
     .audio-gate-content p {
-      max-width: 280px;
-      white-space: normal;
+      max-width: 250px;
       font-size: 16px;
     }
     .audio-gate-button-frame {
