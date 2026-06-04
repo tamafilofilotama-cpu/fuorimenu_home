@@ -27,8 +27,7 @@
   let audioGateButtonEl = $state<HTMLElement>();
   let isAudioGateVisible = $state(true);
   let isAudioGateOpening = $state(false);
-  let activeAudioGateChoice = $state<'on' | 'off' | undefined>();
-  let isAudioMuted = $state(true);
+  let isAudioMuted = $state(false);
   let audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
   let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
@@ -143,16 +142,11 @@
 
   const introMessage    = 'Tutti abbiamo visto i video virali sulla cucina delle olimpiadi...';
   const nextMessage     = 'Incontra le persone che hanno reso tutto questo possibile.';
-  const audioGateMessage = "Attiva l'audio per un'esperienza più immersiva";
+  const audioGateMessage = "Si consiglia l’uso dell’audio per una migliore esperienza";
   const brandWord       = 'Fuorimenù';
   const brandSubtitle   = 'Dentro le cucine di Milano Cortina 2026';
   const introCharacters = parseMessage(introMessage, 'cucina');
   const nextCharacters  = parseMessage(nextMessage,  'persone');
-  const audioGateCharacters = audioGateMessage.split('').map((letter, index) => ({
-    letter,
-    index,
-    isSpace: letter === ' '
-  }));
   const introWords      = groupWords(introCharacters);
 
   const brandLetters = brandWord.split('').map((letter, i) => ({ letter, i }));
@@ -887,10 +881,14 @@
     }
   }
 
-  async function openAudioGate(nextMuted = isAudioMuted, choice: 'on' | 'off') {
+  function toggleAudioGateMuted() {
+    if (isAudioGateOpening) return;
+    isAudioMuted = !isAudioMuted;
+  }
+
+  async function openAudioGate(nextMuted = isAudioMuted) {
     if (isAudioGateOpening) return;
     isAudioMuted = nextMuted;
-    activeAudioGateChoice = choice;
     isAudioGateOpening = true;
     if (!nextMuted) {
       await startBackgroundAudio();
@@ -1231,44 +1229,40 @@
     data-node-id="3266:3591"
   >
     <div class="audio-gate-content">
-      <div class="audio-gate-controls">
-        <div class="audio-gate-button-wrap" class:is-active={activeAudioGateChoice === 'on'}>
-          <span class="audio-gate-reveal" aria-hidden="true"></span>
+      <div class="audio-gate-orbit" aria-hidden="true" data-node-id="4109:3541"></div>
+      <div class="audio-gate-stack">
+        <button
+          class="icon-button audio-gate-audio-button"
+          type="button"
+          aria-label={audioLabel}
+          aria-pressed={isAudioMuted}
+          data-node-id="4109:3605"
+          onclick={toggleAudioGateMuted}
+        >
+          {#if isAudioMuted}
+            <VolumeOffIcon class="volume-icon" />
+          {:else}
+            <VolumeMaxIcon class="volume-icon volume-max-icon" />
+          {/if}
+        </button>
+        <p id="audio-gate-copy" data-node-id="4109:3572">{audioGateMessage}</p>
+        <div class="audio-gate-button-frame" data-node-id="4109:3579">
           <button
             bind:this={audioGateButtonEl}
             class="audio-gate-button"
             type="button"
-            aria-label="Entra con audio attivo"
+            aria-label="Inizia"
+            data-node-id="4109:3575"
             onpointermove={tiltAudioGateButton}
             onpointerleave={resetAudioGateButton}
-            onclick={() => openAudioGate(false, 'on')}
+            onclick={() => openAudioGate(isAudioMuted)}
           >
-            <VolumeMaxIcon class="volume-icon volume-max-icon" />
-          </button>
-        </div>
-        <div class="audio-gate-button-wrap" class:is-active={activeAudioGateChoice === 'off'}>
-          <span class="audio-gate-reveal" aria-hidden="true"></span>
-          <button
-            class="audio-gate-button"
-            type="button"
-            aria-label="Entra con audio disattivato"
-            onclick={() => openAudioGate(true, 'off')}
-          >
-            <VolumeOffIcon class="volume-icon" />
+            <span class="audio-gate-button-label" data-node-id="4109:3578">
+              <span data-node-id="4109:3576">Inizia</span>
+            </span>
           </button>
         </div>
       </div>
-      <p id="audio-gate-copy" aria-label={audioGateMessage}>
-        {#each audioGateCharacters as { letter, isSpace, index } (index)}
-          {#if index === 32}
-            <br aria-hidden="true" />
-          {:else if isSpace}
-            <span class="space" aria-hidden="true">&nbsp;</span>
-          {:else}
-            <span style={`--gate-letter-index: ${index}`} aria-hidden="true">{letter}</span>
-          {/if}
-        {/each}
-      </p>
     </div>
   </section>
 {/if}
@@ -1572,163 +1566,149 @@
   }
 
   .audio-gate-content {
-    --gate-size: 80px;
-
     position: absolute;
     top: 50%;
     left: 50%;
-    display: grid;
-    justify-items: center;
-    gap: 0;
-    width: min(100%, 1512px);
+    width: min(calc(100vw - 48px), 634px);
+    max-height: calc(100svh - 48px);
+    aspect-ratio: 634 / 702;
     transform: translate(-50%, -50%);
   }
 
-  .audio-gate-controls {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-6);
-    perspective: 900px;
-    perspective-origin: 50% 50%;
-  }
-
-  .audio-gate-button-wrap {
-    position: relative;
-    z-index: 1;
-    width: var(--gate-size);
-    aspect-ratio: 1;
-    display: grid;
-    place-items: center;
-  }
-
-  .audio-gate-reveal {
+  .audio-gate-orbit {
     position: absolute;
-    z-index: 1;
-    inset: -1px;
-    border-radius: 50%;
-    background: var(--color-surface-page);
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.82);
-    transform-origin: center;
-    transition:
-      opacity 180ms ease,
-      transform 220ms ease;
-    will-change: opacity, transform;
-  }
-
-  .audio-gate-button-wrap:hover .audio-gate-reveal,
-  .audio-gate-button-wrap:focus-within .audio-gate-reveal {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-
-  .audio-gate-button {
-    position: relative;
-    z-index: 2;
-    display: grid;
-    width: var(--gate-size);
+    top: 9.6866%;
+    left: 0;
+    width: 100%;
     aspect-ratio: 1;
-    place-items: center;
-    padding: 0;
-    border: 0;
     border-radius: 50%;
-    color: var(--color-text-inverse);
-    background: transparent;
-    cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, pointer;
-    outline: 2px solid var(--color-text-inverse);
-    outline-offset: -2px;
-    box-shadow: none;
-    transform:
-      translateZ(var(--gate-hover-z, 0px))
-      rotateX(var(--gate-tilt-x, 0deg))
-      rotateY(var(--gate-tilt-y, 0deg))
-      scale(var(--gate-scale, 1));
-    transition:
-      color 160ms ease,
-      opacity 160ms ease,
-      transform 180ms ease-out,
-      box-shadow 180ms ease;
+    background: var(--color-text-primary);
+    opacity: 1;
+    transition: opacity 240ms ease, transform 760ms cubic-bezier(0.84, 0, 0.16, 1);
     will-change: transform, opacity;
   }
 
-  .audio-gate-button :global(.volume-icon) {
-    width: 28px;
-    height: 28px;
-    stroke-width: 1.8;
+  .audio-gate-orbit::after {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--color-text-inverse);
+    border-radius: inherit;
+    content: '';
   }
 
-  .audio-gate-button:hover,
-  .audio-gate-button:focus-visible {
-    --gate-hover-z: 24px;
-    --gate-scale: 1.07;
-    color: var(--color-text-primary);
-    box-shadow: 0 20px 46px rgb(var(--shadow-dark-rgb) / 0.24);
-  }
-
-  .audio-gate-button:focus-visible {
-    outline-color: var(--color-text-inverse);
-    box-shadow:
-      0 0 0 var(--unit-4) rgb(248 243 233 / 0.24),
-      0 20px 46px rgb(var(--shadow-dark-rgb) / 0.24);
-  }
-
-  .audio-gate.is-opening .audio-gate-button {
-    opacity: 0;
-    color: transparent;
-    transform: scale(1);
-    box-shadow: none;
-  }
-
-  .audio-gate.is-opening .audio-gate-button-wrap.is-active .audio-gate-reveal {
-    opacity: 1;
-    transition:
-      opacity 120ms ease,
-      transform 1200ms cubic-bezier(0.84, 0, 0.16, 1);
-    transform: translate3d(0, 0, 0) scale(48);
+  .audio-gate-marker {
+    position: absolute;
+    z-index: 2;
+    top: 34.543%;
+    left: 47.161%;
+    display: block;
+    width: 5.836%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-xs);
+    background: #d9d9d9;
   }
 
   .audio-gate-content p {
-    position: relative;
+    position: absolute;
     z-index: 2;
-    margin: var(--spacing-6) 0 0;
+    top: 53.276%;
+    left: 50%;
+    width: max-content;
+    max-width: min(calc(100vw - 32px), 86.278%);
+    margin: 0;
     color: var(--color-text-inverse);
     font-family: var(--font-text);
     font-size: 16px;
     font-weight: 400;
-    line-height: 1.4;
+    line-height: normal;
     text-align: center;
+    white-space: nowrap;
+    overflow-wrap: anywhere;
+    transform: translateX(-50%);
     transition: opacity 180ms ease, transform 180ms ease;
   }
 
-  .audio-gate.is-opening .audio-gate-content p {
+  .audio-gate-button-frame {
+    position: absolute;
+    z-index: 3;
+    top: 64.53%;
+    left: 36.435%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 27.287%;
+    min-width: 144px;
+    aspect-ratio: 173 / 68;
+    perspective: 900px;
+    perspective-origin: 50% 50%;
+    transition: opacity 180ms ease, transform 180ms ease;
+  }
+
+  .audio-gate-button {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    padding: 0;
+    border: 2px solid var(--color-text-inverse);
+    border-radius: var(--radius-full);
+    color: var(--color-text-inverse);
+    background: var(--color-text-primary);
+    box-shadow: none;
+    cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, pointer;
+    transform:
+      translateZ(var(--gate-hover-z, 0px))
+      rotateX(var(--gate-tilt-x, 0deg))
+      rotateY(var(--gate-tilt-y, 0deg))
+      scale(var(--button-hover-scale, 1));
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 180ms ease-out,
+      box-shadow 180ms ease;
+    will-change: transform;
+  }
+
+  .audio-gate-button-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-inverse);
+    font-family: var(--font-text);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: normal;
+    white-space: nowrap;
+  }
+
+  .audio-gate-button:hover,
+  .audio-gate-button:focus-visible {
+    --gate-hover-z: 18px;
+    --button-hover-scale: 1.04;
+    background: var(--color-text-inverse);
+    color: var(--color-text-primary);
+    box-shadow: 0 20px 46px rgb(var(--shadow-dark-rgb) / 0.24);
+  }
+
+  .audio-gate-button:hover .audio-gate-button-label,
+  .audio-gate-button:focus-visible .audio-gate-button-label {
+    color: currentColor;
+  }
+
+  .audio-gate-button:focus-visible {
+    outline: 2px solid var(--color-text-inverse);
+    outline-offset: var(--unit-4);
+  }
+
+  .audio-gate.is-opening .audio-gate-orbit {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+
+  .audio-gate.is-opening .audio-gate-content p,
+  .audio-gate.is-opening .audio-gate-button-frame {
     opacity: 0;
     transform: translateY(8px);
-  }
-
-  .audio-gate-content p span {
-    display: inline-block;
-    opacity: 0;
-    transform: translateY(12px);
-    animation: gateLetterIn 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    animation-delay: calc(180ms + var(--gate-letter-index, 0) * 24ms);
-    will-change: opacity, transform;
-  }
-
-  .audio-gate-content p .space {
-    width: 0.58em;
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
-
-  @keyframes gateLetterIn {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .home {
@@ -2556,17 +2536,16 @@
 
   @media (max-width: 700px) {
     .audio-gate-content {
-      --gate-size: 72px;
-
-      width: calc(100% - var(--spacing-8));
+      width: calc(100vw - var(--spacing-8));
     }
     .audio-gate-content p {
       max-width: 280px;
-      margin-top: var(--spacing-4);
       white-space: normal;
       font-size: 16px;
     }
-    .audio-gate-controls { gap: var(--spacing-5); }
+    .audio-gate-button-frame {
+      min-width: 132px;
+    }
     .about-top-bar { height: var(--layout-topbar-height-mobile); padding: var(--layout-topbar-padding-mobile); }
     .logo         { font-size: 34px; }
     .close-icon,
