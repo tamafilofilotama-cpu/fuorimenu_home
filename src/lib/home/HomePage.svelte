@@ -1296,6 +1296,15 @@
     aria-labelledby="audio-gate-copy"
     data-node-id="3266:3591"
   >
+    <div class="audio-gate-utensils" aria-hidden="true">
+      <div class="audio-gate-utensil audio-gate-fork" data-node-id="4197:2170">
+        <img src="/assets/audio-gate-fork.svg" alt="" draggable="false" data-node-id="4197:2168" />
+      </div>
+      <div class="audio-gate-utensil audio-gate-knife" data-node-id="4197:2173">
+        <img src="/assets/audio-gate-knife.svg" alt="" draggable="false" data-node-id="4197:2169" />
+      </div>
+    </div>
+
     <div class="audio-gate-content">
       <div class="audio-gate-orbit" aria-hidden="true" data-node-id="4109:3541">
         <svg class="audio-gate-orbit-line" viewBox="0 0 100 100" focusable="false">
@@ -1309,20 +1318,22 @@
         </svg>
       </div>
       <div class="audio-gate-stack">
-        <button
-          class="icon-button audio-gate-audio-button"
-          type="button"
-          aria-label={audioLabel}
-          aria-pressed={isAudioMuted}
-          data-node-id="4109:3605"
-          onclick={toggleAudioGateMuted}
-        >
-          {#if isAudioMuted}
-            <VolumeOffIcon class="volume-icon" />
-          {:else}
-            <VolumeMaxIcon class="volume-icon volume-max-icon" />
-          {/if}
-        </button>
+        <div class="audio-gate-audio-button-frame" data-node-id="4195:10927">
+          <button
+            class="icon-button audio-gate-audio-button"
+            type="button"
+            aria-label={audioLabel}
+            aria-pressed={isAudioMuted}
+            data-node-id="4109:3605"
+            onclick={toggleAudioGateMuted}
+          >
+            {#if isAudioMuted}
+              <VolumeOffIcon class="volume-icon" />
+            {:else}
+              <VolumeMaxIcon class="volume-icon volume-max-icon" />
+            {/if}
+          </button>
+        </div>
         <p id="audio-gate-copy" aria-label={audioGateMessage} data-node-id="4109:3572">
           {#each audioGateWords as group (group.index)}
             {#if group.type === 'space'}
@@ -1641,6 +1652,8 @@
   }
 
   .audio-gate {
+    --audio-gate-orbit-size: min(calc(100vw - 48px), calc(100svh - 48px), 634px);
+
     position: fixed;
     z-index: 100;
     inset: 0;
@@ -1657,11 +1670,115 @@
 
   .audio-gate-content {
     position: absolute;
+    z-index: 2;
     top: 50%;
     left: 50%;
-    width: min(calc(100vw - 48px), calc(100svh - 48px), 634px);
+    width: var(--audio-gate-orbit-size);
     aspect-ratio: 1;
     transform: translate(-50%, -50%);
+  }
+
+  .audio-gate-utensils {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .audio-gate-utensil {
+    --tool-angle: 0deg;
+    --tool-start-angle: 0deg;
+    --tool-shake-angle-a: 2.8deg;
+    --tool-shake-angle-b: -2deg;
+    --tool-idle-angle: 0.9deg;
+
+    position: absolute;
+    top: 18.8svh;
+    left: calc((100vw - var(--audio-gate-orbit-size)) / 4);
+    width: clamp(86px, 12vw, 174px);
+    height: min(149svh, 890px);
+    transform: translate3d(-50%, 118svh, 0) rotate(var(--tool-start-angle));
+    transform-origin: 50% 90%;
+    will-change: transform, opacity;
+    animation: audioGateUtensilRise 980ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .audio-gate-utensil img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+    transform-origin: 50% 90%;
+    will-change: transform;
+    animation:
+      audioGateUtensilShake 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 760ms both,
+      audioGateUtensilIdle 3.2s ease-in-out 1.22s infinite;
+  }
+
+  .audio-gate-fork {
+    --tool-angle: -0.8deg;
+    --tool-start-angle: -4deg;
+    --tool-shake-angle-a: -3deg;
+    --tool-shake-angle-b: 2deg;
+  }
+
+  .audio-gate-knife {
+    --tool-angle: 0.7deg;
+    --tool-start-angle: 4deg;
+    --tool-shake-angle-a: 2.5deg;
+    --tool-shake-angle-b: -1.8deg;
+    --tool-idle-angle: -1.3deg;
+
+    top: 15.9svh;
+    left: calc(100vw - ((100vw - var(--audio-gate-orbit-size)) / 4));
+    width: clamp(68px, 9.4vw, 134px);
+    height: min(178svh, 1068px);
+    animation-delay: 80ms;
+  }
+
+  @keyframes audioGateUtensilRise {
+    0% {
+      transform: translate3d(-50%, 118svh, 0) rotate(var(--tool-start-angle));
+    }
+
+    76% {
+      transform: translate3d(-50%, -10px, 0) rotate(calc(var(--tool-angle) - 1.2deg));
+    }
+
+    100% {
+      transform: translate3d(-50%, 0, 0) rotate(var(--tool-angle));
+    }
+  }
+
+  @keyframes audioGateUtensilShake {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    22% {
+      transform: translate3d(-4px, 1px, 0) rotate(var(--tool-shake-angle-a));
+    }
+
+    48% {
+      transform: translate3d(3px, -1px, 0) rotate(var(--tool-shake-angle-b));
+    }
+
+    72% {
+      transform: translate3d(-2px, 0, 0) rotate(calc(var(--tool-shake-angle-a) * 0.44));
+    }
+  }
+
+  @keyframes audioGateUtensilIdle {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    48% {
+      transform: translate3d(0, -8px, 0) rotate(calc(var(--tool-idle-angle) * 1.35));
+    }
   }
 
   .audio-gate-orbit {
@@ -1725,6 +1842,16 @@
       opacity: 1;
       transform: none;
     }
+
+    .audio-gate-utensil {
+      animation: none;
+      transform: translateX(-50%) rotate(var(--tool-angle));
+    }
+
+    .audio-gate-utensil img {
+      animation: none;
+      transform: rotate(0deg);
+    }
   }
 
   .audio-gate-stack {
@@ -1740,19 +1867,77 @@
     transition: opacity 180ms ease, transform 180ms ease;
   }
 
+  .audio-gate-audio-button-frame {
+    --button-depth-x: 4px;
+    --button-depth-y: 4px;
+
+    position: relative;
+    width: clamp(48px, 5.5vw, 56px);
+    aspect-ratio: 1;
+    perspective: 900px;
+    perspective-origin: 50% 50%;
+  }
+
+  .audio-gate-audio-button-frame::before {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--color-text-inverse);
+    border-radius: var(--radius-full);
+    background: var(--color-text-strong);
+    content: '';
+    opacity: 0;
+    transform: translate(var(--button-depth-x), var(--button-depth-y));
+    transition: opacity 160ms ease;
+  }
+
   .audio-gate .audio-gate-audio-button {
+    --button-hover-scale: 1;
+    --button-lift-x: 0px;
+    --button-lift-y: 0px;
+
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--color-text-inverse);
+    border-radius: var(--radius-full);
     color: var(--color-text-inverse);
+    background: var(--color-text-primary);
     cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, pointer;
+    transform:
+      translate(var(--button-lift-x), var(--button-lift-y))
+      scale(var(--button-hover-scale));
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
   }
 
   .audio-gate .audio-gate-audio-button:hover,
   .audio-gate .audio-gate-audio-button:focus-visible {
-    color: var(--color-text-inverse);
-    opacity: 0.72;
+    --button-lift-x: -4px;
+    --button-lift-y: -4px;
+    --button-hover-scale: 1.03;
+
+    color: var(--color-text-primary);
+    background: var(--color-text-inverse);
+    opacity: 1;
+  }
+
+  .audio-gate-audio-button-frame:hover::before,
+  .audio-gate-audio-button-frame:focus-within::before {
+    opacity: 1;
+  }
+
+  .audio-gate .audio-gate-audio-button:active {
+    --button-lift-x: 0px;
+    --button-lift-y: 0px;
+    --button-hover-scale: 1;
   }
 
   .audio-gate .audio-gate-audio-button:focus-visible {
-    outline-color: var(--color-text-inverse);
+    outline: 2px solid var(--color-text-inverse);
+    outline-offset: var(--unit-4);
   }
 
   .audio-gate-content p {
@@ -1761,7 +1946,7 @@
     justify-content: center;
     row-gap: 0;
     width: max-content;
-    max-width: min(calc(100vw - 64px), 72%);
+    max-width: min(calc(100vw - 64px), 570px);
     margin: 0;
     color: var(--color-text-inverse);
     font-family: var(--font-text);
@@ -1791,12 +1976,14 @@
   }
 
   .audio-gate-button-frame {
+    --button-depth-x: 5px;
+    --button-depth-y: 5px;
+
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    width: 173px;
-    max-width: 42%;
+    width: clamp(144px, 17vw, 173px);
     aspect-ratio: 173 / 68;
     perspective: 900px;
     perspective-origin: 50% 50%;
@@ -1809,8 +1996,9 @@
     border-radius: var(--radius-full);
     background: var(--color-text-strong);
     content: '';
-    opacity: 1;
-    transform: translate(0, 0);
+    opacity: 0;
+    transform: translate(var(--button-depth-x), var(--button-depth-y));
+    transition: opacity 160ms ease;
   }
 
   .audio-gate-button {
@@ -1857,17 +2045,22 @@
 
   .audio-gate-button:hover,
   .audio-gate-button:focus-visible {
-    --button-lift-x: -8px;
-    --button-lift-y: -8px;
+    --button-lift-x: -5px;
+    --button-lift-y: -5px;
     --button-hover-scale: 1.02;
     background: var(--color-text-inverse);
     color: var(--color-text-primary);
     box-shadow: none;
   }
 
+  .audio-gate-button-frame:hover::before,
+  .audio-gate-button-frame:focus-within::before {
+    opacity: 1;
+  }
+
   .audio-gate-button:active {
-    --button-lift-x: -1px;
-    --button-lift-y: -1px;
+    --button-lift-x: 0px;
+    --button-lift-y: 0px;
     --button-hover-scale: 1;
   }
 
@@ -1883,6 +2076,19 @@
 
   .audio-gate.is-opening .audio-gate-orbit {
     transform: scale(1.02);
+  }
+
+  .audio-gate.is-opening .audio-gate-utensil {
+    opacity: 0;
+    animation: none;
+    transform: translate3d(-50%, 26px, 0) rotate(var(--tool-angle));
+    transition:
+      opacity 220ms ease,
+      transform 280ms ease;
+  }
+
+  .audio-gate.is-opening .audio-gate-utensil img {
+    animation: none;
   }
 
   .audio-gate.is-opening .audio-gate-orbit-line {
@@ -1901,7 +2107,7 @@
     }
   }
 
-  .audio-gate.is-opening .audio-gate-audio-button,
+  .audio-gate.is-opening .audio-gate-audio-button-frame,
   .audio-gate.is-opening .audio-gate-content p {
     opacity: 0;
     transform: translateY(-6px);
@@ -2764,6 +2970,17 @@
   @media (max-width: 700px) {
     .audio-gate-content {
       width: calc(100vw - var(--spacing-8));
+    }
+    .audio-gate-utensil {
+      top: 21svh;
+      width: clamp(58px, 18vw, 76px);
+      height: 84svh;
+      opacity: 0.82;
+    }
+    .audio-gate-knife {
+      top: 17svh;
+      width: clamp(48px, 15vw, 64px);
+      height: 101svh;
     }
     .audio-gate-content p {
       max-width: 250px;
