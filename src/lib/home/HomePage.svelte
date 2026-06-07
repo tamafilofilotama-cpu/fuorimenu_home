@@ -1387,11 +1387,13 @@
     aria-pressed={isAudioMuted}
     onclick={toggleAudioMuted}
   >
-    {#if isAudioMuted}
-      <VolumeOffIcon class="volume-icon" />
-    {:else}
-      <VolumeMaxIcon class="volume-icon volume-max-icon" />
-    {/if}
+    <span class="topbar-control-content" aria-hidden="true">
+      {#if isAudioMuted}
+        <VolumeOffIcon class="volume-icon" />
+      {:else}
+        <VolumeMaxIcon class="volume-icon volume-max-icon" />
+      {/if}
+    </span>
   </button>
 {/if}
 
@@ -1486,7 +1488,9 @@
 
 <section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenù">
   <header class="roles-top-bar" aria-label="Navigazione principale">
-    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>FM</a>
+    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>
+      <span class="topbar-control-content">FM</span>
+    </a>
     <span class="top-bar-audio top-bar-audio-slot" aria-hidden="true"></span>
     <button
       class="icon-button top-bar-menu"
@@ -1495,7 +1499,9 @@
       aria-expanded={isAboutOpen}
       onclick={openAbout}
     >
-      <span class="menu-icon" aria-hidden="true"></span>
+      <span class="topbar-control-content" aria-hidden="true">
+        <span class="menu-icon"></span>
+      </span>
     </button>
   </header>
 
@@ -1599,7 +1605,9 @@
     data-node-id="256:1827"
   >
     <header class="about-top-bar" aria-label="Navigazione about">
-      <a class="logo about-logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>FM</a>
+      <a class="logo about-logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>
+        <span class="topbar-control-content">FM</span>
+      </a>
       <button
         class="icon-button top-bar-audio about-audio"
         type="button"
@@ -1607,11 +1615,13 @@
         aria-pressed={isAudioMuted}
         onclick={toggleAudioMuted}
       >
-        {#if isAudioMuted}
-          <VolumeOffIcon class="volume-icon" />
-        {:else}
-          <VolumeMaxIcon class="volume-icon volume-max-icon" />
-        {/if}
+        <span class="topbar-control-content" aria-hidden="true">
+          {#if isAudioMuted}
+            <VolumeOffIcon class="volume-icon" />
+          {:else}
+            <VolumeMaxIcon class="volume-icon volume-max-icon" />
+          {/if}
+        </span>
       </button>
       <button
         class="icon-button top-bar-menu about-close"
@@ -1619,7 +1629,9 @@
         aria-label="Chiudi sezione about"
         onclick={closeAbout}
       >
-        <span class="close-icon" aria-hidden="true"></span>
+        <span class="topbar-control-content" aria-hidden="true">
+          <span class="close-icon"></span>
+        </span>
       </button>
     </header>
 
@@ -1878,7 +1890,7 @@
 
   .audio-gate-audio-button-frame,
   .audio-gate-button-frame {
-    --button-depth-x: 4px;
+    --button-depth-x: 0px;
     --button-depth-y: 4px;
 
     position: relative;
@@ -2161,9 +2173,12 @@
   }
 
   .logo {
-    width: 51px; color: var(--color-content-primary);
+    color: var(--color-content-primary);
     font-family: var(--font-display);
-    font-size: var(--unit-40); line-height: 1; text-decoration: none;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
     transition: color 160ms ease;
   }
 
@@ -2181,7 +2196,7 @@
     z-index: 60;
     top: var(--spacing-7);
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translate(var(--button-lift-x, 0px), var(--button-lift-y, 0px));
   }
 
   .roles-top-bar a {
@@ -2196,10 +2211,183 @@
     background: transparent; border: 0; cursor: url('/cursors/retrogusto-cursor.svg') 5 5, pointer;
     transition: color 160ms ease, opacity 0.2s ease;
   }
+
+  .roles-top-bar .logo,
+  .roles-top-bar .icon-button,
+  .about-top-bar .logo,
+  .about-top-bar .icon-button,
+  .persistent-top-audio {
+    --button-depth-x: 4px;
+    --button-depth-y: 4px;
+    --button-lift-x: 0px;
+    --button-lift-y: 0px;
+    --button-hover-scale: 1;
+    --topbar-control-bg: var(--color-surface-page);
+    --topbar-control-fg: var(--color-text-primary);
+    --topbar-control-hover-bg: var(--color-surface-page);
+    --topbar-control-hover-fg: var(--color-text-primary);
+    --topbar-control-depth: var(--color-text-primary);
+
+    position: relative;
+    display: grid;
+    width: 56px;
+    height: 56px;
+    place-items: center;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: var(--radius-full);
+    color: var(--topbar-control-fg);
+    background: transparent;
+    isolation: isolate;
+    transform: scale(var(--button-hover-scale));
+    transition:
+      color 160ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease;
+    will-change: transform;
+  }
+
+  .persistent-top-audio {
+    transform:
+      translateX(-50%)
+      scale(var(--button-hover-scale));
+  }
+
+  .roles-top-bar .logo,
+  .about-top-bar .logo {
+    font-weight: 700;
+  }
+
+  .roles-top-bar .logo::before,
+  .roles-top-bar .icon-button::before,
+  .about-top-bar .logo::before,
+  .about-top-bar .icon-button::before,
+  .persistent-top-audio::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border: 2px solid var(--topbar-control-fg);
+    border-radius: var(--radius-full);
+    background: var(--topbar-control-depth);
+    content: '';
+    opacity: 0;
+    transform: translate(var(--button-depth-x), var(--button-depth-y));
+    transition: opacity 160ms ease;
+  }
+
+  .roles-top-bar .logo::after,
+  .roles-top-bar .icon-button::after,
+  .about-top-bar .logo::after,
+  .about-top-bar .icon-button::after,
+  .persistent-top-audio::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border: 2px solid var(--topbar-control-fg);
+    border-radius: var(--radius-full);
+    background: var(--topbar-control-bg);
+    content: '';
+    transform:
+      translate(var(--button-lift-x), var(--button-lift-y));
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .topbar-control-content {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    color: currentColor;
+    transform:
+      translate(var(--button-lift-x), var(--button-lift-y));
+    transition:
+      color 160ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  .roles-top-bar .logo:hover,
+  .roles-top-bar .logo:focus-visible,
+  .roles-top-bar .icon-button:hover,
+  .roles-top-bar .icon-button:focus-visible,
+  .about-top-bar .logo:hover,
+  .about-top-bar .logo:focus-visible,
+  .about-top-bar .icon-button:hover,
+  .about-top-bar .icon-button:focus-visible,
+  .persistent-top-audio:hover,
+  .persistent-top-audio:focus-visible {
+    --button-lift-x: -4px;
+    --button-lift-y: -4px;
+    --button-hover-scale: 1.01;
+
+    color: var(--topbar-control-hover-fg);
+  }
+
+  .roles-top-bar .logo:hover::after,
+  .roles-top-bar .logo:focus-visible::after,
+  .roles-top-bar .icon-button:hover::after,
+  .roles-top-bar .icon-button:focus-visible::after,
+  .about-top-bar .logo:hover::after,
+  .about-top-bar .logo:focus-visible::after,
+  .about-top-bar .icon-button:hover::after,
+  .about-top-bar .icon-button:focus-visible::after,
+  .persistent-top-audio:hover::after,
+  .persistent-top-audio:focus-visible::after {
+    border-color: var(--topbar-control-fg);
+    background: var(--topbar-control-hover-bg);
+  }
+
+  .roles-top-bar .logo:hover::before,
+  .roles-top-bar .logo:focus-visible::before,
+  .roles-top-bar .icon-button:hover::before,
+  .roles-top-bar .icon-button:focus-visible::before,
+  .about-top-bar .logo:hover::before,
+  .about-top-bar .logo:focus-visible::before,
+  .about-top-bar .icon-button:hover::before,
+  .about-top-bar .icon-button:focus-visible::before,
+  .persistent-top-audio:hover::before,
+  .persistent-top-audio:focus-visible::before {
+    opacity: 1;
+  }
+
+  .roles-top-bar .logo:active,
+  .roles-top-bar .icon-button:active,
+  .about-top-bar .logo:active,
+  .about-top-bar .icon-button:active,
+  .persistent-top-audio:active {
+    --button-lift-x: -1px;
+    --button-lift-y: -1px;
+    --button-hover-scale: 1;
+  }
+
+  .roles-top-bar .logo:active::before,
+  .roles-top-bar .icon-button:active::before,
+  .about-top-bar .logo:active::before,
+  .about-top-bar .icon-button:active::before,
+  .persistent-top-audio:active::before {
+    opacity: 1;
+  }
+
   .logo:hover,
   .logo:focus-visible,
   .icon-button:hover,
   .icon-button:focus-visible { color: var(--color-interactive-hover); }
+
+  .roles-top-bar .logo:hover,
+  .roles-top-bar .logo:focus-visible,
+  .roles-top-bar .icon-button:hover,
+  .roles-top-bar .icon-button:focus-visible,
+  .about-top-bar .logo:hover,
+  .about-top-bar .logo:focus-visible,
+  .about-top-bar .icon-button:hover,
+  .about-top-bar .icon-button:focus-visible,
+  .persistent-top-audio:hover,
+  .persistent-top-audio:focus-visible {
+    color: var(--topbar-control-fg);
+  }
   .icon-button:hover         { opacity: 1; }
   .icon-button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: var(--unit-4); }
 
@@ -2275,11 +2463,11 @@
   .about-logo,
   .about-audio,
   .about-close {
-    color: var(--color-text-inverse);
+    color: var(--color-text-primary);
   }
 
   .about-logo {
-    font-weight: 400;
+    font-weight: 700;
   }
 
   .about-logo:hover,
@@ -2288,7 +2476,7 @@
   .about-audio:focus-visible,
   .about-close:hover,
   .about-close:focus-visible {
-    color: var(--color-interactive-hover);
+    color: var(--color-text-primary);
   }
 
   .about-audio {
