@@ -29,7 +29,7 @@
   let audioGateButtonEl = $state<HTMLElement>();
   let isAudioGateVisible = $state(true);
   let isAudioGateOpening = $state(false);
-  let isAudioMuted = $state(false);
+  let isAudioMuted = $state(true);
   let audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
   let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
@@ -909,8 +909,9 @@
     audioCues.stop(role);
   }
 
-  function toggleAudioMuted() {
-    isAudioMuted = !isAudioMuted;
+  function setAudioMuted(nextMuted: boolean) {
+    if (isAudioMuted === nextMuted) return;
+    isAudioMuted = nextMuted;
     if (isAudioMuted) {
       stopAllHomeAudio();
     } else {
@@ -919,9 +920,13 @@
     }
   }
 
+  function toggleAudioMuted() {
+    setAudioMuted(!isAudioMuted);
+  }
+
   function toggleAudioGateMuted() {
     if (isAudioGateOpening) return;
-    isAudioMuted = !isAudioMuted;
+    setAudioMuted(!isAudioMuted);
   }
 
   function setAudioGateButtonTransitionVars() {

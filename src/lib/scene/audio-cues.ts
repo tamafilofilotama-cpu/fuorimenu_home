@@ -105,12 +105,19 @@ export function createAudioCueManager<Id extends string>(options: AudioCueManage
     const audio = config?.el;
     if (!config || !audio) return false;
 
+    const targetVolume = getTargetVolume(config);
+    if (!audio.paused && !audio.ended) {
+      audio.loop = config.loop ?? false;
+      fade(id, targetVolume, undefined, config.fadeInDuration);
+      watchLoop(id);
+      return true;
+    }
+
     cancelFade(id);
     cancelLoop(id);
     audio.loop = config.loop ?? false;
     audio.pause();
     audio.currentTime = config.startTime ?? 0;
-    const targetVolume = getTargetVolume(config);
     audio.volume = config.fadeIn === false ? targetVolume : 0;
 
     try {
