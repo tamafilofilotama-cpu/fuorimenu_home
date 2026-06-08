@@ -341,12 +341,6 @@
     personX: 12,
     personY: 7
   };
-  const gateTiltMotion = {
-    tiltX: 12.5,
-    tiltY: 14.5,
-    tiltXLimit: 8,
-    tiltYLimit: 9
-  };
   const floatingExitMotion = {
     start: 1.42,
     duration: 1.16,
@@ -816,22 +810,6 @@
         0
       )
       .to(clone, { boxShadow: '0 0 0 rgb(42 68 132 / 0)', duration: 0.32 }, 0);
-  }
-
-  function tiltAudioGateButton(e: PointerEvent) {
-    if (!audioGateButtonEl) return;
-    const { nx, ny } = getPointerOffset(e, audioGateButtonEl);
-    setCssVars(audioGateButtonEl, {
-      '--gate-tilt-x': deg(clamp(-ny * gateTiltMotion.tiltX, -gateTiltMotion.tiltXLimit, gateTiltMotion.tiltXLimit)),
-      '--gate-tilt-y': deg(clamp(nx * gateTiltMotion.tiltY, -gateTiltMotion.tiltYLimit, gateTiltMotion.tiltYLimit))
-    });
-  }
-
-  function resetAudioGateButton() {
-    setCssVars(audioGateButtonEl, {
-      '--gate-tilt-x': '0deg',
-      '--gate-tilt-y': '0deg'
-    });
   }
 
   function revealIntroLetters() {
@@ -1367,8 +1345,6 @@
             type="button"
             aria-label="Inizia"
             data-node-id="4109:3575"
-            onpointermove={tiltAudioGateButton}
-            onpointerleave={resetAudioGateButton}
             onclick={() => openAudioGate(isAudioMuted)}
           >
             <span class="audio-gate-button-label" data-node-id="4109:3578">
@@ -2054,8 +2030,6 @@
     cursor: url('/cursors/retrogusto-cursor-light.svg') 5 5, pointer;
     transform:
       translate(var(--button-lift-x, 0px), var(--button-lift-y, 0px))
-      rotateX(var(--gate-tilt-x, 0deg))
-      rotateY(var(--gate-tilt-y, 0deg))
       scale(var(--button-hover-scale, 1));
     transition:
       background-color 160ms ease,
