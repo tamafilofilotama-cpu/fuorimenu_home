@@ -18,6 +18,7 @@
   let brandScreen: HTMLElement;
   let brandSubtitleEl: HTMLElement;
   let brandScrollCueEl: HTMLElement;
+  let rolesTopBar: HTMLElement;
   let rolesScreen: HTMLElement;
   let reelCards: HTMLElement[] = [];
   let roleCards: HTMLElement[] = [];
@@ -1009,6 +1010,7 @@
     if (brandScreen) {
       setLayerState(brandScreen, epBrand, epBrand > 0.05);
     }
+    setLayerState(rolesTopBar, epBrand, epBrand > 0.05 && !isAboutOpen);
 
     const floatingExit = ease(clamp((brandProgress - floatingExitMotion.start) / floatingExitMotion.duration));
     floatingEls.forEach((el, index) => {
@@ -1486,31 +1488,41 @@
   </div>
 </section>
 
-<section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenù">
-  <header class="roles-top-bar" aria-label="Navigazione principale">
-    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>
-      <span class="topbar-control-content">FM</span>
-    </a>
-    <span class="top-bar-audio top-bar-audio-slot" aria-hidden="true"></span>
-    <button
-      class="icon-button top-bar-menu"
-      type="button"
-      aria-label="Apri sezione about"
-      aria-expanded={isAboutOpen}
-      onclick={openAbout}
-    >
-      <span class="topbar-control-content" aria-hidden="true">
-        <span class="menu-icon"></span>
-      </span>
-    </button>
-  </header>
+<header bind:this={rolesTopBar} class="roles-top-bar" class:is-hidden={isAboutOpen} aria-label="Navigazione principale">
+  <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù" onclick={reloadHome}>
+    <span class="topbar-control-content">FM</span>
+  </a>
+  <span class="top-bar-audio top-bar-audio-slot" aria-hidden="true"></span>
+  <button
+    class="icon-button top-bar-menu"
+    type="button"
+    aria-label="Apri sezione about"
+    aria-expanded={isAboutOpen}
+    onclick={openAbout}
+  >
+    <span class="topbar-control-content" aria-hidden="true">
+      <span class="menu-icon"></span>
+    </span>
+  </button>
+</header>
 
+<section bind:this={rolesScreen} class="roles-screen" aria-label="Aree Fuorimenù">
   <div class="role-grid">
     {#snippet roleCardBody(item: RoleItem)}
       <div class="role-card-top">
         <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
         <span class="role-card-bg-overlay" aria-hidden="true"></span>
         <div class="role-hover-panel">
+          <svg
+            class="role-hover-panel-shape"
+            viewBox="0 0 373 149"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M1 122.5V41C1 18.9 18.9 1 41 1H332C354.1 1 372 18.9 372 41V122.5H215.5L186.5 147.5L157.5 122.5H1Z"
+            />
+          </svg>
           <p>{item.hoverText}</p>
         </div>
         <div class="role-card-copy">
@@ -1894,6 +1906,8 @@
   .audio-gate-button-frame {
     --button-depth-x: 0px;
     --button-depth-y: 8px;
+    --audio-gate-button-depth-bg: var(--color-surface-page);
+    --audio-gate-button-depth-border: var(--color-surface-page);
 
     position: relative;
     perspective: 900px;
@@ -1901,16 +1915,16 @@
   }
 
   .audio-gate-audio-button-frame {
-    width: clamp(48px, 5.5vw, 56px);
-    aspect-ratio: 1;
+    width: 56px;
+    height: 56px;
   }
 
   .audio-gate-audio-button-frame::before {
     position: absolute;
     inset: 0;
-    border: 2px solid var(--color-text-inverse);
+    border: 2px solid var(--audio-gate-button-depth-border);
     border-radius: var(--radius-full);
-    background: var(--color-text-strong);
+    background: var(--audio-gate-button-depth-bg);
     content: '';
     opacity: 0;
     transition: opacity 90ms ease;
@@ -1924,7 +1938,7 @@
     position: relative;
     width: 100%;
     height: 100%;
-    border: 2px solid var(--color-text-inverse);
+    border: 2px solid var(--audio-gate-button-depth-border);
     border-radius: var(--radius-full);
     color: var(--color-text-inverse);
     background: var(--color-text-primary);
@@ -1934,6 +1948,7 @@
       scale(var(--button-hover-scale));
     transition:
       background-color 160ms ease,
+      border-color 160ms ease,
       color 160ms ease,
       transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform;
@@ -1946,6 +1961,7 @@
     --button-hover-scale: 1;
 
     color: var(--color-text-primary);
+    border-color: var(--color-text-primary);
     background: var(--color-text-inverse);
     opacity: 1;
   }
@@ -2014,7 +2030,7 @@
     inset: 0;
     border: 2px solid var(--color-text-inverse);
     border-radius: var(--radius-full);
-    background: var(--color-text-strong);
+    background: var(--audio-gate-button-depth-bg);
     content: '';
     opacity: 0;
     transition: opacity 90ms ease;
@@ -2043,6 +2059,7 @@
       scale(var(--button-hover-scale, 1));
     transition:
       background-color 160ms ease,
+      border-color 160ms ease,
       color 160ms ease,
       transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform;
@@ -2067,6 +2084,7 @@
     --button-lift-x: 0px;
     --button-lift-y: calc(var(--button-depth-y) * -1);
     --button-hover-scale: 1;
+    border-color: var(--color-text-primary);
     background: var(--color-text-inverse);
     color: var(--color-text-primary);
     box-shadow: none;
@@ -2815,12 +2833,20 @@
   }
 
   .roles-top-bar {
-    position: absolute; z-index: 5; top: 0; left: 0;
+    position: fixed; z-index: 55; top: 0; left: 0;
     box-sizing: border-box;
     display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
     width: 100%; height: var(--layout-topbar-height);
     padding: var(--layout-topbar-padding);
     color: var(--color-text-primary);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms linear;
+  }
+
+  .roles-top-bar.is-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   .role-grid {
@@ -2837,9 +2863,6 @@
 
   .role-card {
     --role-card-radius: clamp(42px, 4.55vw, 65px);
-    --role-panel-body-height: 23.45%;
-    --role-panel-notch-width: 12.9%;
-    --role-panel-notch-height: 5.05%;
     --role-card-depth-y: 12px;
     --role-card-lift-y: 0px;
     --role-reveal-duration: 270ms;
@@ -3000,77 +3023,53 @@
 
   .role-hover-panel {
     position: absolute; z-index: 8;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: -2px;
+    left: -3px;
+    right: -3px;
     width: auto;
-    height: calc(var(--role-panel-body-height) + var(--role-panel-notch-height));
+    height: calc(28.45% + 4px);
     min-height: 0;
-    display: grid;
-    place-items: center;
-    padding: 7.2% 13.5% calc(5.2% + var(--role-panel-notch-height));
-    border-radius: calc(var(--role-card-radius) - 2px) calc(var(--role-card-radius) - 2px) 0 0;
-    background: var(--color-surface-page);
+    padding: 7.2% 13.5% 6.8%;
     color: var(--color-text-primary);
-    clip-path: polygon(
-      0 0,
-      100% 0,
-      100% calc(100% - var(--role-panel-notch-height)),
-      calc(50% + (var(--role-panel-notch-width) / 2)) calc(100% - var(--role-panel-notch-height)),
-      50% 100%,
-      calc(50% - (var(--role-panel-notch-width) / 2)) calc(100% - var(--role-panel-notch-height)),
-      0 calc(100% - var(--role-panel-notch-height))
-    );
-    opacity: 1;
-    visibility: visible;
+    opacity: 0;
+    visibility: hidden;
     transform:
       translateX(var(--role-dialogue-x, 0px))
-      translateY(var(--role-dialogue-y, 0px));
-    transition: transform 90ms linear;
+      translateY(calc(-100% - 8px + var(--role-dialogue-y, 0px)));
+    transition:
+      opacity 90ms linear,
+      visibility 0s linear 190ms,
+      transform var(--role-reveal-duration) var(--role-reveal-ease);
     pointer-events: none;
   }
 
-  .role-hover-panel::before {
-    content: '';
+  .role-hover-panel-shape {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: var(--role-panel-notch-height);
-    height: 2px;
-    background:
-      linear-gradient(
-        to right,
-        var(--color-border-primary) 0 calc(50% - (var(--role-panel-notch-width) / 2)),
-        transparent calc(50% - (var(--role-panel-notch-width) / 2)) calc(50% + (var(--role-panel-notch-width) / 2)),
-        var(--color-border-primary) calc(50% + (var(--role-panel-notch-width) / 2)) 100%
-      );
+    z-index: 0;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
   }
 
-  .role-hover-panel::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: var(--role-panel-notch-width);
-    height: var(--role-panel-notch-height);
-    background:
-      linear-gradient(
-        to bottom right,
-        transparent calc(50% - 1px),
-        var(--color-border-primary) calc(50% - 1px) calc(50% + 1px),
-        transparent calc(50% + 1px)
-      ) left top / 50% 100% no-repeat,
-      linear-gradient(
-        to bottom left,
-        transparent calc(50% - 1px),
-        var(--color-border-primary) calc(50% - 1px) calc(50% + 1px),
-        transparent calc(50% + 1px)
-      ) right top / 50% 100% no-repeat;
-    transform: translateX(-50%);
+  .role-hover-panel-shape path {
+    fill: var(--color-surface-page);
+    stroke: var(--color-border-primary);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
   }
 
   .role-hover-panel p {
-    width: min(100%, 267px);
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    right: 13.5%;
+    bottom: 17.8%;
+    left: 13.5%;
+    display: grid;
+    place-items: center;
+    width: auto;
     margin: 0;
     font-family: var(--font-text);
     font-size: clamp(12px, 1.06vw, 15px);
@@ -3081,7 +3080,21 @@
   }
 
   .role-card-copy {
-    display: none;
+    position: absolute;
+    z-index: 7;
+    top: 50%;
+    left: var(--spacing-5);
+    right: var(--spacing-5);
+    display: grid;
+    justify-items: center;
+    color: var(--color-text-primary);
+    text-align: center;
+    opacity: 1;
+    transform:
+      translateX(var(--role-copy-x, 0px))
+      translateY(calc(-50% + var(--role-copy-y, 0px)));
+    transition: opacity 160ms ease, transform 180ms ease;
+    pointer-events: none;
   }
 
   .role-card-copy h2 {
@@ -3183,13 +3196,19 @@
   .role-card.has-dialogue:hover .role-card-copy,
   .role-card.has-dialogue:focus-visible .role-card-copy {
     opacity: 0;
+    transform:
+      translateX(var(--role-copy-x, 0px))
+      translateY(calc(-50% - 12px + var(--role-copy-y, 0px)));
   }
 
   .role-card.has-dialogue:hover .role-hover-panel,
   .role-card.has-dialogue:focus-visible .role-hover-panel {
     opacity: 1;
     visibility: visible;
-    transition: transform 90ms linear;
+    transition:
+      opacity 80ms linear,
+      visibility 0s linear,
+      transform var(--role-reveal-duration) var(--role-reveal-ease);
     transform:
       translateX(var(--role-dialogue-x, 0px))
       translateY(var(--role-dialogue-y, 0px));
@@ -3280,9 +3299,6 @@
     }
     .role-card {
       --role-card-radius: clamp(34px, 12vw, 54px);
-      --role-panel-body-height: 23.45%;
-      --role-panel-notch-width: 12.9%;
-      --role-panel-notch-height: 5.05%;
 
       min-height: 0;
       aspect-ratio: auto;
@@ -3298,17 +3314,17 @@
       object-position: center center;
     }
     .role-hover-panel {
-      top: 0;
-      left: 0;
-      right: 0;
+      top: -2px;
+      left: -3px;
+      right: -3px;
       width: auto;
-      height: calc(var(--role-panel-body-height) + var(--role-panel-notch-height));
+      height: calc(28.45% + 4px);
       min-height: 0;
-      padding: 4.8% var(--spacing-4) calc(3.8% + var(--role-panel-notch-height));
-      border-radius: calc(var(--role-card-radius) - 2px) calc(var(--role-card-radius) - 2px) 0 0;
+      padding: 5.2% var(--spacing-4) 4.8%;
     }
     .role-hover-panel p {
-      width: min(100%, 238px);
+      left: var(--spacing-4);
+      right: var(--spacing-4);
       font-size: clamp(11px, 3.4vw, 14px);
       line-height: 1.35;
     }
