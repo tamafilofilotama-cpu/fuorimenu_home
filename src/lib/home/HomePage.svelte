@@ -1507,34 +1507,36 @@
 
   <div class="role-grid">
     {#snippet roleCardBody(item: RoleItem)}
-      <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
-      <span class="role-card-bg-overlay" aria-hidden="true"></span>
-      <div class="role-hover-panel">
-        <p>{item.hoverText}</p>
-      </div>
-      <div class="role-card-copy">
-        <h2>{item.title}</h2>
-        <p>{item.description}</p>
-      </div>
-      {#if item.personSrc}
-        <img
-          class="role-person"
-          class:role-person-outline={Boolean(item.personFillSrc)}
-          src={item.personSrc}
-          alt={item.speaker}
-          data-node-id={item.personNodeId}
-          draggable="false"
-        />
-        {#if item.personFillSrc}
+      <div class="role-card-top">
+        <img class="role-card-bg" src="/images/figma-kitchen-scene.png" alt="" draggable="false" />
+        <span class="role-card-bg-overlay" aria-hidden="true"></span>
+        <div class="role-hover-panel">
+          <p>{item.hoverText}</p>
+        </div>
+        <div class="role-card-copy">
+          <h2>{item.title}</h2>
+          <p>{item.description}</p>
+        </div>
+        {#if item.personSrc}
           <img
-            class="role-person role-person-fill"
-            src={item.personFillSrc}
-            alt=""
-            data-node-id={item.personFillNodeId}
+            class="role-person"
+            class:role-person-outline={Boolean(item.personFillSrc)}
+            src={item.personSrc}
+            alt={item.speaker}
+            data-node-id={item.personNodeId}
             draggable="false"
           />
+          {#if item.personFillSrc}
+            <img
+              class="role-person role-person-fill"
+              src={item.personFillSrc}
+              alt=""
+              data-node-id={item.personFillNodeId}
+              draggable="false"
+            />
+          {/if}
         {/if}
-      {/if}
+      </div>
     {/snippet}
 
     {#each roleItems as item, index}
@@ -1891,7 +1893,7 @@
   .audio-gate-audio-button-frame,
   .audio-gate-button-frame {
     --button-depth-x: 0px;
-    --button-depth-y: 4px;
+    --button-depth-y: 8px;
 
     position: relative;
     perspective: 900px;
@@ -1911,7 +1913,6 @@
     background: var(--color-text-strong);
     content: '';
     opacity: 0;
-    transform: translate(var(--button-depth-x), var(--button-depth-y));
     transition: opacity 90ms ease;
   }
 
@@ -1941,7 +1942,7 @@
   .audio-gate .audio-gate-audio-button:hover,
   .audio-gate .audio-gate-audio-button:focus-visible {
     --button-lift-x: 0px;
-    --button-lift-y: -6px;
+    --button-lift-y: calc(var(--button-depth-y) * -1);
     --button-hover-scale: 1;
 
     color: var(--color-text-primary);
@@ -2016,7 +2017,6 @@
     background: var(--color-text-strong);
     content: '';
     opacity: 0;
-    transform: translate(var(--button-depth-x), var(--button-depth-y));
     transition: opacity 90ms ease;
   }
 
@@ -2065,7 +2065,7 @@
   .audio-gate-button:hover,
   .audio-gate-button:focus-visible {
     --button-lift-x: 0px;
-    --button-lift-y: -5px;
+    --button-lift-y: calc(var(--button-depth-y) * -1);
     --button-hover-scale: 1;
     background: var(--color-text-inverse);
     color: var(--color-text-primary);
@@ -2218,7 +2218,7 @@
   .about-top-bar .icon-button,
   .persistent-top-audio {
     --button-depth-x: 0px;
-    --button-depth-y: 4px;
+    --button-depth-y: 6px;
     --button-lift-x: 0px;
     --button-lift-y: 0px;
     --button-hover-scale: 1;
@@ -2272,7 +2272,6 @@
     background: var(--topbar-control-depth);
     content: '';
     opacity: 0;
-    transform: translate(var(--button-depth-x), var(--button-depth-y));
     transition: opacity 90ms ease;
   }
 
@@ -2321,7 +2320,7 @@
   .persistent-top-audio:hover,
   .persistent-top-audio:focus-visible {
     --button-lift-x: 0px;
-    --button-lift-y: -4px;
+    --button-lift-y: calc(var(--button-depth-y) * -1);
     --button-hover-scale: 1;
 
     color: var(--topbar-control-hover-fg);
@@ -2838,9 +2837,10 @@
 
   .role-card {
     --role-card-radius: clamp(42px, 4.55vw, 65px);
-    --role-panel-height: 28.45%;
-    --role-panel-notch-size: clamp(34px, 12.86%, 48px);
-    --role-card-depth-y: 0px;
+    --role-panel-body-height: 23.45%;
+    --role-panel-notch-width: 12.9%;
+    --role-panel-notch-height: 5.05%;
+    --role-card-depth-y: 12px;
     --role-card-lift-y: 0px;
     --role-reveal-duration: 270ms;
     --role-reveal-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -2850,38 +2850,37 @@
     position: relative;
     width: 100%;
     aspect-ratio: 373.448 / 524;
-    overflow: hidden;
+    overflow: visible;
     isolation: isolate;
     min-height: 0;
-    border: 2px solid var(--color-border-primary);
+    border: 0;
     border-radius: var(--role-card-radius);
-    background: var(--role-card-fill, var(--color-surface-page));
+    background: transparent;
     cursor: url('/cursors/retrogusto-cursor.svg') 5 5, pointer;
     opacity: var(--role-card-opacity, 0);
-    transform:
-      translateY(calc(var(--role-card-y, 38vh) + var(--role-card-lift-y, 0px)));
+    transform: translateY(var(--role-card-y, 38vh));
     transform-style: flat;
     transform-origin: 50% 50%;
-    box-shadow:
-      0 var(--role-card-depth-y, 0px) 0 var(--color-text-primary),
-      0 20px 46px rgb(var(--shadow-brand-rgb) / var(--role-shadow-alpha, 0));
+    box-shadow: 0 20px 46px rgb(var(--shadow-brand-rgb) / var(--role-shadow-alpha, 0));
     transition:
       opacity 120ms linear,
-      transform 210ms cubic-bezier(0.18, 1.35, 0.28, 1),
-      box-shadow 120ms ease;
+      transform 180ms ease-out,
+      box-shadow 180ms ease;
     will-change: opacity, transform;
     backface-visibility: hidden;
   }
 
   .role-card::before {
     position: absolute;
-    z-index: 3;
+    z-index: 0;
     inset: 0;
-    background: rgb(248 243 233 / 0.6);
+    border: 2px solid var(--color-border-primary);
+    border-radius: var(--role-card-radius);
+    background: var(--color-text-primary);
     content: '';
-    mix-blend-mode: plus-darker;
-    opacity: 1;
+    opacity: 0;
     pointer-events: none;
+    transition: opacity 90ms ease;
   }
 
   .role-card::after {
@@ -2890,8 +2889,12 @@
 
   .role-card:hover,
   .role-card:focus-visible {
-    --role-card-depth-y: 4px;
-    --role-card-lift-y: -5px;
+    --role-card-lift-y: calc(var(--role-card-depth-y) * -1);
+  }
+
+  .role-card:hover::before,
+  .role-card:focus-visible::before {
+    opacity: 1;
   }
 
   .role-card.is-linked {
@@ -2919,7 +2922,7 @@
   }
 
   :global(.role-card.is-entering) {
-    overflow: hidden;
+    overflow: visible;
     cursor: url('/cursors/retrogusto-cursor.svg') 5 5, auto;
     will-change: left, top, width, height, border-radius, box-shadow;
   }
@@ -2933,7 +2936,31 @@
   }
 
   :global(.role-card.is-entering::before) {
-    z-index: 4;
+    opacity: 0;
+  }
+
+  .role-card-top {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    overflow: hidden;
+    border: 2px solid var(--color-border-primary);
+    border-radius: var(--role-card-radius);
+    background: var(--role-card-fill, var(--color-surface-page));
+    transform: translateY(var(--role-card-lift-y, 0px));
+    transition: transform 210ms cubic-bezier(0.18, 1.35, 0.28, 1);
+    will-change: transform;
+  }
+
+  .role-card-top::before {
+    position: absolute;
+    z-index: 3;
+    inset: 0;
+    background: rgb(248 243 233 / 0.6);
+    content: '';
+    mix-blend-mode: plus-darker;
+    opacity: 1;
+    pointer-events: none;
   }
 
   .role-card-bg {
@@ -2977,15 +3004,23 @@
     left: 0;
     right: 0;
     width: auto;
-    height: var(--role-panel-height);
+    height: calc(var(--role-panel-body-height) + var(--role-panel-notch-height));
     min-height: 0;
     display: grid;
     place-items: center;
-    padding: 7.4% 13.5% 6.8%;
-    border-bottom: 2px solid var(--color-border-primary);
+    padding: 7.2% 13.5% calc(5.2% + var(--role-panel-notch-height));
     border-radius: calc(var(--role-card-radius) - 2px) calc(var(--role-card-radius) - 2px) 0 0;
     background: var(--color-surface-page);
     color: var(--color-text-primary);
+    clip-path: polygon(
+      0 0,
+      100% 0,
+      100% calc(100% - var(--role-panel-notch-height)),
+      calc(50% + (var(--role-panel-notch-width) / 2)) calc(100% - var(--role-panel-notch-height)),
+      50% 100%,
+      calc(50% - (var(--role-panel-notch-width) / 2)) calc(100% - var(--role-panel-notch-height)),
+      0 calc(100% - var(--role-panel-notch-height))
+    );
     opacity: 1;
     visibility: visible;
     transform:
@@ -2995,25 +3030,50 @@
     pointer-events: none;
   }
 
+  .role-hover-panel::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: var(--role-panel-notch-height);
+    height: 2px;
+    background:
+      linear-gradient(
+        to right,
+        var(--color-border-primary) 0 calc(50% - (var(--role-panel-notch-width) / 2)),
+        transparent calc(50% - (var(--role-panel-notch-width) / 2)) calc(50% + (var(--role-panel-notch-width) / 2)),
+        var(--color-border-primary) calc(50% + (var(--role-panel-notch-width) / 2)) 100%
+      );
+  }
+
   .role-hover-panel::after {
     content: '';
     position: absolute;
     left: 50%;
-    bottom: calc((var(--role-panel-notch-size) / -2) - 1px);
-    width: var(--role-panel-notch-size);
-    aspect-ratio: 1;
-    border-right: 2px solid var(--color-border-primary);
-    border-bottom: 2px solid var(--color-border-primary);
-    background: var(--color-surface-page);
-    transform: translateX(-50%) rotate(45deg);
-    transform-origin: 50% 50%;
+    bottom: 0;
+    width: var(--role-panel-notch-width);
+    height: var(--role-panel-notch-height);
+    background:
+      linear-gradient(
+        to bottom right,
+        transparent calc(50% - 1px),
+        var(--color-border-primary) calc(50% - 1px) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      ) left top / 50% 100% no-repeat,
+      linear-gradient(
+        to bottom left,
+        transparent calc(50% - 1px),
+        var(--color-border-primary) calc(50% - 1px) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      ) right top / 50% 100% no-repeat;
+    transform: translateX(-50%);
   }
 
   .role-hover-panel p {
     width: min(100%, 267px);
     margin: 0;
     font-family: var(--font-text);
-    font-size: clamp(13px, 1.16vw, 16px);
+    font-size: clamp(12px, 1.06vw, 15px);
     font-weight: 600;
     line-height: 1.5;
     letter-spacing: 0;
@@ -3220,8 +3280,9 @@
     }
     .role-card {
       --role-card-radius: clamp(34px, 12vw, 54px);
-      --role-panel-height: 28.45%;
-      --role-panel-notch-size: clamp(24px, 9.2vw, 34px);
+      --role-panel-body-height: 23.45%;
+      --role-panel-notch-width: 12.9%;
+      --role-panel-notch-height: 5.05%;
 
       min-height: 0;
       aspect-ratio: auto;
@@ -3241,19 +3302,15 @@
       left: 0;
       right: 0;
       width: auto;
-      height: var(--role-panel-height);
+      height: calc(var(--role-panel-body-height) + var(--role-panel-notch-height));
       min-height: 0;
-      padding: 5.5% var(--spacing-4) 5%;
+      padding: 4.8% var(--spacing-4) calc(3.8% + var(--role-panel-notch-height));
       border-radius: calc(var(--role-card-radius) - 2px) calc(var(--role-card-radius) - 2px) 0 0;
     }
     .role-hover-panel p {
       width: min(100%, 238px);
       font-size: clamp(11px, 3.4vw, 14px);
       line-height: 1.35;
-    }
-    .role-hover-panel::after {
-      bottom: calc(var(--role-panel-notch-size) / -2);
-      width: var(--role-panel-notch-size);
     }
     .role-person {
       height: min(98%, 400px);
