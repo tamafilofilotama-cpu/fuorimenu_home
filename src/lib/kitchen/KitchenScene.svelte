@@ -12,7 +12,6 @@
 
   const {
     assetWidth,
-    chefQuote,
     cursorCss,
     floorHeight,
     floorBottomOffset,
@@ -40,6 +39,12 @@
   const { bridge } = sceneController;
   const kitchenAssetVersion = '20260616-parallax-4';
   const kitchenAsset = (name: string) => `/assets/${name}?v=${kitchenAssetVersion}`;
+  const testimonialHandoffSticky = {
+    maxFactor: 0.66,
+    minFactor: 0.22,
+    releaseAfterNext: 0.009,
+    zoneBeforeNext: 0.064
+  };
   const tailStartX = 23600;
   const tailWidth = 23000;
   const tailTop = -105;
@@ -47,18 +52,27 @@
   const middleLayerFloorOffset = 28;
   const toolShedMessage =
     'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
+  const carloSpeech =
+    "C'erano grosse difficoltà su Santa Giulia. Il 30 di gennaio era ancora un cantiere, quindi si entrava con l'elmetto col giubbotto catarifrangente; la situazione era veramente drammatica.\nDa dicembre 2025 abbiamo cambiato completamente la strategia per quel sito, perché era un sito che si sapeva che avrebbe avuto delle grosse difficoltà, perché a volte si faceva anche fino a 11.000 spettatori per tre gare al giorno.";
+  const faustoSecondAudioPauseMs = 700;
+  const faustoSecondAudioStartTime = 25.9;
+  type KitchenTestimonialId = 'carlo' | 'paganini' | 'fausto';
   type KitchenTestimonial = {
-    id: 'carlo' | 'paganini';
+    id: KitchenTestimonialId;
     ariaLabel: string;
+    audioStartTime?: number;
+    audioSrc?: string;
     bubbleTop?: string;
+    dialogueVisibleThreshold?: number;
     enterProgress: number;
     exitProgress?: number;
     imageAlt: string;
     imageSrc: string;
     metaLabel: string;
     name: string;
-    replayAudio?: boolean;
+    revealDurationSeconds?: number;
     rolePrefix: string;
+    revealSpeechWithAudio?: boolean;
     speech: string;
     widthMax?: number;
     widthMin?: number;
@@ -69,21 +83,24 @@
     {
       id: 'carlo',
       ariaLabel: 'Testimonianza Carlo Zarri',
+      audioSrc: '/sound/carlo.mp3',
+      bubbleTop: 'clamp(58px, 7vh, 100px)',
       enterProgress: 0.02,
       exitProgress: 0.155,
       imageAlt: '',
       imageSrc: '/assets/npc_CarloZarri_alt1.svg',
       metaLabel: 'Chief Executive Chef - Carlo Zarri',
       name: 'Carlo Zarri',
-      replayAudio: true,
       rolePrefix: 'Chief Executive Chef - ',
-      speech: chefQuote,
+      revealSpeechWithAudio: true,
+      speech: carloSpeech,
       bottomOffset: 660
     },
     {
       id: 'paganini',
       ariaLabel: 'Testimonianza Stefano Paganini',
-      bubbleTop: 'clamp(118px, 15vh, 174px)',
+      audioSrc: '/sound/stefano.mp3',
+      bubbleTop: 'clamp(72px, 9vh, 126px)',
       enterProgress: 0.168,
       exitProgress: 0.235,
       imageAlt: '',
@@ -91,14 +108,74 @@
       metaLabel: 'Chef - Stefano Paganini',
       name: 'Stefano Paganini',
       rolePrefix: 'Chef - ',
-      speech: 'Ora il racconto passa alla cucina: seguimi tra le casse di ortaggi, da qui inizia un altro pezzo di servizio.',
+      revealSpeechWithAudio: true,
+      speech:
+        "Da noi arrivavano ogni tre giorni due barra tre bancali di roba fresca e devi fare in maniera che non ti mancasse mai niente perché c'era sempre la paura, porca miseria se nevica, non possono arrivare con la roba quindi dobbiamo avere le robe in più. Lo standard qualitativo era molto alto perché erano tutti prodotti freschi, che non è scontato eh.",
       widthMax: 390,
       widthMin: 330,
       widthVw: 0.255,
       bottomOffset: 180
+    },
+    {
+      id: 'fausto',
+      ariaLabel: 'Testimonianza Fausto',
+      audioStartTime: 17.8,
+      audioSrc: '/sound/fausto.mp3',
+      bubbleTop: 'clamp(16px, 2.5vh, 38px)',
+      dialogueVisibleThreshold: 0.16,
+      enterProgress: 0.248,
+      exitProgress: 0.315,
+      imageAlt: '',
+      imageSrc: '/images/fausto.png',
+      metaLabel: 'Chef - Fausto',
+      name: 'Fausto',
+      revealDurationSeconds: 12,
+      rolePrefix: 'Chef - ',
+      revealSpeechWithAudio: true,
+      speech:
+        "Sei istituti alberghieri, tra cui l'Istituto di Busto Arsizio, l'Istituto Lagrange di Milano, l'Istituto di Bormio, l'Istituto di Cortina e l'Istituto di Brunico ci hanno aiutato per effettuare tutte le tipologie di servizi.",
+      widthMax: 390,
+      widthMin: 330,
+      widthVw: 0.255,
+      bottomOffset: 480
     }
   ];
   const carloTestimonial = kitchenTestimonials[0];
+  const paganiniTestimonial = kitchenTestimonials[1];
+  const faustoTestimonial = kitchenTestimonials[2];
+  const testimonialAudioState: Record<
+    KitchenTestimonialId,
+    {
+      hasPlayed: boolean;
+      hasUnlocked: boolean;
+      isStarting: boolean;
+      isStopping: boolean;
+      unlockPromise?: Promise<void>;
+      playbackToken: number;
+    }
+  > = {
+    carlo: {
+      hasPlayed: false,
+      hasUnlocked: false,
+      isStarting: false,
+      isStopping: false,
+      playbackToken: 0
+    },
+    paganini: {
+      hasPlayed: false,
+      hasUnlocked: false,
+      isStarting: false,
+      isStopping: false,
+      playbackToken: 0
+    },
+    fausto: {
+      hasPlayed: false,
+      hasUnlocked: false,
+      isStarting: false,
+      isStopping: false,
+      playbackToken: 0
+    }
+  };
 
   let stageEl: HTMLElement;
   let viewportWidth = $state(0);
@@ -120,16 +197,25 @@
   let standMixerAudioEl: HTMLAudioElement;
   let constructionAudioEl: HTMLAudioElement;
   let kitchenAmbientAudioEl: HTMLAudioElement;
-  let chefIntroAudioEl: HTMLAudioElement;
+  let carloAudioEl: HTMLAudioElement;
+  let paganiniAudioEl: HTMLAudioElement;
+  let faustoAudioEl: HTMLAudioElement;
+  let fausto2AudioEl: HTMLAudioElement;
+  let faustoSecondAudioTimer: ReturnType<typeof setTimeout> | undefined;
   let hasPlayedToolShedHover = false;
   let hasPlayedStandMixerHover = false;
-  let hasPlayedChefIntro = false;
-  let hasUnlockedChefIntroAudio = false;
   let isAmbientAudioStarted = false;
-  let isChefIntroAudioStarting = false;
-  let isChefIntroAudioPlaying = $state(false);
-  let chefIntroUnlockPromise: Promise<void> | undefined;
-  let chefIntroPlaybackToken = 0;
+  let activeTestimonialAudioId = $state<KitchenTestimonialId>();
+  let dismissedTestimonialIds = $state<Record<KitchenTestimonialId, boolean>>({
+    carlo: false,
+    paganini: false,
+    fausto: false
+  });
+  let testimonialRevealProgress = $state<Record<KitchenTestimonialId, number>>({
+    carlo: 0,
+    paganini: 0,
+    fausto: 0
+  });
   let prefersReducedMotion = $state(false);
   let toolShedAudioContext: AudioContext | undefined;
   let toolShedAudioSource: MediaElementAudioSourceNode | undefined;
@@ -149,7 +235,6 @@
 
   const scenePx = (value: number) => px(value, 2);
   const testimonialPinnedLeftInset = $derived(Math.max(16, Math.min(48, viewportWidth * 0.028)));
-  const isChefDialogueVisible = $derived(isTestimonialDialogueVisible(carloTestimonial));
 
   function syncViewport() {
     if (!stageEl) return;
@@ -160,7 +245,55 @@
   }
 
   function scrollBy(delta: number) {
-    kitchenController?.scrollBy(delta);
+    kitchenController?.scrollBy(applyTestimonialHandoffResistance(delta));
+  }
+
+  function getNextTestimonial(testimonial: KitchenTestimonial) {
+    const index = kitchenTestimonials.findIndex((candidate) => candidate.id === testimonial.id);
+    return index >= 0 ? kitchenTestimonials[index + 1] : undefined;
+  }
+
+  function isTestimonialAudioUnfinished(testimonial: KitchenTestimonial) {
+    const audio = getTestimonialAudioEl(testimonial);
+    const state = testimonialAudioState[testimonial.id];
+
+    if (state.isStarting) return true;
+    if (activeTestimonialAudioId !== testimonial.id || !audio || audio.paused || audio.ended) {
+      return false;
+    }
+
+    return !Number.isFinite(audio.duration) || audio.currentTime < audio.duration - 0.2;
+  }
+
+  function applyTestimonialHandoffResistance(delta: number) {
+    if (delta <= 0 || !activeTestimonialAudioId) return delta;
+
+    const activeTestimonial = kitchenTestimonials.find(
+      (testimonial) => testimonial.id === activeTestimonialAudioId
+    );
+    if (!activeTestimonial || !isTestimonialAudioUnfinished(activeTestimonial)) return delta;
+
+    const nextTestimonial = getNextTestimonial(activeTestimonial);
+    if (!nextTestimonial) return delta;
+
+    const stickyStart = Math.max(
+      activeTestimonial.enterProgress,
+      nextTestimonial.enterProgress - testimonialHandoffSticky.zoneBeforeNext
+    );
+    const stickyEnd = nextTestimonial.enterProgress + testimonialHandoffSticky.releaseAfterNext;
+    if (narrativeProgress < stickyStart || narrativeProgress > stickyEnd) return delta;
+
+    const releaseProgress = clamp(
+      (narrativeProgress - stickyStart) / Math.max(stickyEnd - stickyStart, 0.001),
+      0,
+      1
+    );
+    const factor =
+      testimonialHandoffSticky.maxFactor -
+      smoothProgress(releaseProgress) *
+        (testimonialHandoffSticky.maxFactor - testimonialHandoffSticky.minFactor);
+
+    return delta * factor;
   }
 
   function getLayerStyle(factor: number, bottomOffset = 0, verticalOffset = 0) {
@@ -246,7 +379,7 @@
     return value * value * (3 - 2 * value);
   }
 
-  function getTestimonialPresence(testimonial: KitchenTestimonial) {
+  function getRawTestimonialPresence(testimonial: KitchenTestimonial) {
     const enter = clamp((narrativeProgress - testimonial.enterProgress) / 0.012, 0, 1);
     const exit =
       testimonial.exitProgress === undefined
@@ -256,8 +389,17 @@
     return clamp(smoothProgress(enter) * smoothProgress(exit), 0, 1);
   }
 
+  function getTestimonialPresence(testimonial: KitchenTestimonial) {
+    if (dismissedTestimonialIds[testimonial.id]) return 0;
+    return getRawTestimonialPresence(testimonial);
+  }
+
+  function isTestimonialInDialogueRange(testimonial: KitchenTestimonial) {
+    return getRawTestimonialPresence(testimonial) > (testimonial.dialogueVisibleThreshold ?? 0.94);
+  }
+
   function isTestimonialDialogueVisible(testimonial: KitchenTestimonial) {
-    return getTestimonialPresence(testimonial) > 0.94;
+    return getTestimonialPresence(testimonial) > (testimonial.dialogueVisibleThreshold ?? 0.94);
   }
 
   function getTestimonialStyle(testimonial: KitchenTestimonial) {
@@ -279,19 +421,104 @@
     ].join(';');
   }
 
+  function getVisibleSpeech(testimonial: KitchenTestimonial) {
+    if (!testimonial.revealSpeechWithAudio) return testimonial.speech;
+
+    const visibleLength = Math.ceil(
+      testimonial.speech.length * testimonialRevealProgress[testimonial.id]
+    );
+
+    return testimonial.speech.slice(0, visibleLength);
+  }
+
+  function resetTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
+    testimonialRevealProgress[testimonial.id] = testimonial.revealSpeechWithAudio ? 0 : 1;
+  }
+
+  function resetTestimonialReplay(testimonial: KitchenTestimonial) {
+    testimonialAudioState[testimonial.id].hasPlayed = false;
+    dismissedTestimonialIds[testimonial.id] = false;
+    resetTestimonialSpeechReveal(testimonial);
+    if (testimonial.id === 'fausto') clearFaustoSecondAudioTimer();
+  }
+
+  function completeTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
+    testimonialRevealProgress[testimonial.id] = 1;
+  }
+
+  function finishTestimonialDialogue(testimonial: KitchenTestimonial) {
+    completeTestimonialSpeechReveal(testimonial);
+    dismissedTestimonialIds[testimonial.id] = true;
+    if (activeTestimonialAudioId === testimonial.id) activeTestimonialAudioId = undefined;
+  }
+
+  function clearFaustoSecondAudioTimer() {
+    if (!faustoSecondAudioTimer) return;
+    clearTimeout(faustoSecondAudioTimer);
+    faustoSecondAudioTimer = undefined;
+  }
+
+  function queueFaustoSecondAudio() {
+    clearFaustoSecondAudioTimer();
+    activeTestimonialAudioId = 'fausto';
+    faustoSecondAudioTimer = setTimeout(() => {
+      faustoSecondAudioTimer = undefined;
+      void playFaustoSecondAudio();
+    }, faustoSecondAudioPauseMs);
+  }
+
+  async function playFaustoSecondAudio() {
+    if (isAudioMuted || dismissedTestimonialIds.fausto || !fausto2AudioEl) return;
+
+    gsap.killTweensOf(fausto2AudioEl);
+    fausto2AudioEl.pause();
+    fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
+    fausto2AudioEl.muted = false;
+    fausto2AudioEl.volume = 1;
+    activeTestimonialAudioId = 'fausto';
+
+    try {
+      await fausto2AudioEl.play();
+    } catch {
+      if (activeTestimonialAudioId === 'fausto') activeTestimonialAudioId = undefined;
+    }
+  }
+
+  function finishFaustoFirstDialogue() {
+    completeTestimonialSpeechReveal(faustoTestimonial);
+    queueFaustoSecondAudio();
+  }
+
+  function syncTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
+    const audio = getTestimonialAudioEl(testimonial);
+    if (!testimonial.revealSpeechWithAudio || !audio) return;
+
+    const startTime = testimonial.audioStartTime ?? 0;
+    const audioDuration =
+      Number.isFinite(audio.duration) && audio.duration > startTime
+        ? audio.duration - startTime
+        : 1;
+    const revealDuration = testimonial.revealDurationSeconds ?? audioDuration;
+    testimonialRevealProgress[testimonial.id] = clamp(
+      (audio.currentTime - startTime) / Math.max(revealDuration, 0.001),
+      0,
+      1
+    );
+  }
+
   function onWheel(event: WheelEvent) {
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
 
     event.preventDefault();
     void startAmbientAudio();
-    void unlockChefIntroAudio();
+    unlockRelevantTestimonialAudio();
     scrollBy(delta * 1.05);
   }
 
   function onPointerDown(event: PointerEvent) {
     isDragging = true;
     void startAmbientAudio();
-    void unlockChefIntroAudio();
+    unlockRelevantTestimonialAudio();
     kitchenController?.beginDrag(event.clientX);
     stageEl.setPointerCapture(event.pointerId);
   }
@@ -299,6 +526,7 @@
   function onPointerMove(event: PointerEvent) {
     if (!isDragging) return;
     kitchenController?.dragTo(event.clientX);
+    unlockRelevantTestimonialAudio();
   }
 
   function endDrag(event: PointerEvent) {
@@ -313,7 +541,7 @@
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
     void startAmbientAudio();
-    void unlockChefIntroAudio();
+    unlockRelevantTestimonialAudio();
     scrollBy(event.key === 'ArrowLeft' ? -42 : 42);
   }
 
@@ -348,8 +576,8 @@
 
   function setAmbientAudioVolumes() {
     const mix = getKitchenAmbientMix();
-    const voiceDuck = isChefIntroAudioPlaying ? 0.18 : 1;
-    const fadeDuration = isChefIntroAudioPlaying ? 0.36 : 0.72;
+    const voiceDuck = activeTestimonialAudioId ? 0.18 : 1;
+    const fadeDuration = activeTestimonialAudioId ? 0.36 : 0.72;
     const constructionVolume = isAudioMuted ? 0 : 0.13 * (1 - mix) * voiceDuck;
     const kitchenVolume = isAudioMuted ? 0 : 0.26 * mix * voiceDuck;
 
@@ -398,7 +626,7 @@
 
     toolShedAudioEl?.pause();
     standMixerAudioEl?.pause();
-    stopChefIntroAudio({ duration: 0, resetReplay: false });
+    pauseAllTestimonialAudioForMute();
     constructionAudioEl?.pause();
     kitchenAmbientAudioEl?.pause();
     isAmbientAudioStarted = false;
@@ -407,14 +635,28 @@
   $effect(() => {
     if (isAudioMuted) return;
 
-    if (isChefDialogueVisible) {
-      if (!hasPlayedChefIntro && !isChefIntroAudioStarting) void playChefIntroAudio();
-      return;
-    }
+    kitchenTestimonials.forEach((testimonial) => {
+      const state = testimonialAudioState[testimonial.id];
+      const audio = getTestimonialAudioEl(testimonial);
+      const isInDialogueRange = isTestimonialInDialogueRange(testimonial);
+      const isDialogueVisible = isTestimonialDialogueVisible(testimonial);
 
-    if (isChefIntroAudioPlaying || isChefIntroAudioStarting || !chefIntroAudioEl?.paused) {
-      stopChefIntroAudio();
-    }
+      if (isDialogueVisible) {
+        if (!state.hasPlayed && !state.isStarting) void playTestimonialAudio(testimonial);
+        return;
+      }
+
+      if (!isInDialogueRange && (state.hasPlayed || dismissedTestimonialIds[testimonial.id])) {
+        resetTestimonialReplay(testimonial);
+      }
+
+      if (
+        !state.isStopping &&
+        (activeTestimonialAudioId === testimonial.id || state.isStarting || !audio?.paused)
+      ) {
+        stopTestimonialAudio(testimonial);
+      }
+    });
   });
 
   function playToolShedHoverSound() {
@@ -439,92 +681,196 @@
     hasPlayedStandMixerHover = false;
   }
 
-  function unlockChefIntroAudio() {
+  function getTestimonialAudioEl(testimonial: KitchenTestimonial) {
+    if (testimonial.id === 'carlo') return carloAudioEl;
+    if (testimonial.id === 'paganini') return paganiniAudioEl;
+    if (testimonial.id === 'fausto') return faustoAudioEl;
+    return undefined;
+  }
+
+  function getActiveTestimonialAudioEl(testimonial: KitchenTestimonial) {
+    if (testimonial.id === 'fausto' && fausto2AudioEl && !fausto2AudioEl.paused) {
+      return fausto2AudioEl;
+    }
+
+    return getTestimonialAudioEl(testimonial);
+  }
+
+  function pauseAllTestimonialAudioForMute() {
+    clearFaustoSecondAudioTimer();
+    kitchenTestimonials.forEach((testimonial) => {
+      const state = testimonialAudioState[testimonial.id];
+      const audioElements = [getTestimonialAudioEl(testimonial)];
+      if (testimonial.id === 'fausto') audioElements.push(fausto2AudioEl);
+
+      state.playbackToken += 1;
+      state.isStarting = false;
+      state.isStopping = false;
+
+      audioElements.forEach((audio) => {
+        if (!audio) return;
+        gsap.killTweensOf(audio);
+        audio.pause();
+        audio.volume = 1;
+      });
+    });
+
+    activeTestimonialAudioId = undefined;
+  }
+
+  function unlockRelevantTestimonialAudio() {
+    kitchenTestimonials.forEach((testimonial) => {
+      const unlockStart = testimonial.enterProgress - 0.04;
+      const unlockEnd = (testimonial.exitProgress ?? testimonial.enterProgress + 0.06) + 0.03;
+      if (narrativeProgress < unlockStart || narrativeProgress > unlockEnd) return;
+      void unlockTestimonialAudio(testimonial);
+    });
+  }
+
+  function unlockTestimonialAudio(testimonial: KitchenTestimonial) {
+    const audio = getTestimonialAudioEl(testimonial);
+    const state = testimonialAudioState[testimonial.id];
+
     if (
       isAudioMuted ||
-      hasUnlockedChefIntroAudio ||
-      hasPlayedChefIntro ||
-      isChefIntroAudioPlaying ||
-      !chefIntroAudioEl
+      !testimonial.audioSrc ||
+      state.hasUnlocked ||
+      state.hasPlayed ||
+      activeTestimonialAudioId === testimonial.id ||
+      !audio
     ) {
       return Promise.resolve();
     }
-    if (chefIntroUnlockPromise) return chefIntroUnlockPromise;
+    if (state.unlockPromise) return state.unlockPromise;
 
-    chefIntroUnlockPromise = (async () => {
-      const previousMuted = chefIntroAudioEl.muted;
-      const previousVolume = chefIntroAudioEl.volume;
+    state.unlockPromise = (async () => {
+      const previousMuted = audio.muted;
+      const previousVolume = audio.volume;
 
       try {
-        chefIntroAudioEl.muted = true;
-        chefIntroAudioEl.volume = 0;
-        await chefIntroAudioEl.play();
-        chefIntroAudioEl.pause();
-        chefIntroAudioEl.currentTime = 0;
-        hasUnlockedChefIntroAudio = true;
+        audio.muted = true;
+        audio.volume = 0;
+        await audio.play();
+        audio.pause();
+        audio.currentTime = testimonial.audioStartTime ?? 0;
+
+        if (testimonial.id === 'fausto' && fausto2AudioEl) {
+          const previousSecondMuted = fausto2AudioEl.muted;
+          const previousSecondVolume = fausto2AudioEl.volume;
+
+          try {
+            fausto2AudioEl.muted = true;
+            fausto2AudioEl.volume = 0;
+            await fausto2AudioEl.play();
+            fausto2AudioEl.pause();
+            fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
+          } finally {
+            fausto2AudioEl.volume = previousSecondVolume;
+            fausto2AudioEl.muted = previousSecondMuted;
+          }
+        }
+
+        state.hasUnlocked = true;
       } catch {
-        hasUnlockedChefIntroAudio = false;
+        state.hasUnlocked = false;
       } finally {
-        chefIntroAudioEl.volume = previousVolume;
-        chefIntroAudioEl.muted = previousMuted;
-        chefIntroUnlockPromise = undefined;
+        audio.volume = previousVolume;
+        audio.muted = previousMuted;
+        state.unlockPromise = undefined;
       }
     })();
 
-    return chefIntroUnlockPromise;
+    return state.unlockPromise;
   }
 
-  async function playChefIntroAudio() {
-    if (isAudioMuted || hasPlayedChefIntro || isChefIntroAudioStarting || !chefIntroAudioEl) return;
+  async function playTestimonialAudio(testimonial: KitchenTestimonial) {
+    const audio = getTestimonialAudioEl(testimonial);
+    const state = testimonialAudioState[testimonial.id];
+    if (isAudioMuted || !testimonial.audioSrc || state.hasPlayed || state.isStarting || !audio) return;
 
-    isChefIntroAudioStarting = true;
-    if (chefIntroUnlockPromise) await chefIntroUnlockPromise;
-    if (isAudioMuted || hasPlayedChefIntro || !chefIntroAudioEl) {
-      isChefIntroAudioStarting = false;
+    state.isStarting = true;
+    if (state.unlockPromise) await state.unlockPromise;
+    if (isAudioMuted || state.hasPlayed || !audio) {
+      state.isStarting = false;
       return;
     }
 
-    chefIntroAudioEl.pause();
-    chefIntroAudioEl.currentTime = 0;
-    chefIntroAudioEl.muted = false;
-    chefIntroAudioEl.volume = 1;
-    isChefIntroAudioPlaying = true;
-    const playbackToken = ++chefIntroPlaybackToken;
+    stopAllTestimonialAudio({ duration: 0, except: testimonial.id, resetReplay: false });
+    if (testimonial.id === 'fausto') clearFaustoSecondAudioTimer();
+
+    gsap.killTweensOf(audio);
+    state.isStopping = false;
+    audio.pause();
+    audio.currentTime = testimonial.audioStartTime ?? 0;
+    if (testimonial.id === 'fausto' && fausto2AudioEl) {
+      gsap.killTweensOf(fausto2AudioEl);
+      fausto2AudioEl.pause();
+      fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
+      fausto2AudioEl.volume = 1;
+    }
+    audio.muted = false;
+    audio.volume = 1;
+    dismissedTestimonialIds[testimonial.id] = false;
+    resetTestimonialSpeechReveal(testimonial);
+    activeTestimonialAudioId = testimonial.id;
+    const playbackToken = ++state.playbackToken;
 
     try {
-      await chefIntroAudioEl.play();
-      if (playbackToken === chefIntroPlaybackToken) hasPlayedChefIntro = true;
+      await audio.play();
+      if (playbackToken === state.playbackToken) state.hasPlayed = true;
     } catch {
-      isChefIntroAudioPlaying = false;
+      if (activeTestimonialAudioId === testimonial.id) activeTestimonialAudioId = undefined;
     } finally {
-      isChefIntroAudioStarting = false;
+      state.isStarting = false;
     }
   }
 
-  function stopChefIntroAudio(options: { duration?: number; resetReplay?: boolean } = {}) {
-    if (!chefIntroAudioEl) return;
+  function stopTestimonialAudio(
+    testimonial: KitchenTestimonial,
+    options: { duration?: number; resetReplay?: boolean } = {}
+  ) {
+    const audio = getActiveTestimonialAudioEl(testimonial);
+    const state = testimonialAudioState[testimonial.id];
+    if (!audio) return;
 
     const duration = options.duration ?? 0.46;
     const resetReplay = options.resetReplay ?? true;
-    chefIntroPlaybackToken += 1;
-    isChefIntroAudioStarting = false;
-    if (resetReplay) hasPlayedChefIntro = false;
+    if (state.isStopping && duration > 0) return;
 
-    gsap.killTweensOf(chefIntroAudioEl);
+    state.playbackToken += 1;
+    state.isStarting = false;
+    state.isStopping = duration > 0 && !audio.paused;
+    if (resetReplay) state.hasPlayed = false;
+
+    gsap.killTweensOf(audio);
 
     const afterStop = () => {
-      chefIntroAudioEl.pause();
-      chefIntroAudioEl.currentTime = 0;
-      chefIntroAudioEl.volume = 1;
-      isChefIntroAudioPlaying = false;
+      audio.pause();
+      audio.currentTime =
+        testimonial.id === 'fausto' && audio === fausto2AudioEl
+          ? faustoSecondAudioStartTime
+          : (testimonial.audioStartTime ?? 0);
+      audio.volume = 1;
+      if (testimonial.id === 'fausto') {
+        clearFaustoSecondAudioTimer();
+        if (fausto2AudioEl && audio !== fausto2AudioEl) {
+          gsap.killTweensOf(fausto2AudioEl);
+          fausto2AudioEl.pause();
+          fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
+          fausto2AudioEl.volume = 1;
+        }
+      }
+      state.isStopping = false;
+      resetTestimonialSpeechReveal(testimonial);
+      if (activeTestimonialAudioId === testimonial.id) activeTestimonialAudioId = undefined;
     };
 
-    if (duration <= 0 || chefIntroAudioEl.paused) {
+    if (duration <= 0 || audio.paused) {
       afterStop();
       return;
     }
 
-    gsap.to(chefIntroAudioEl, {
+    gsap.to(audio, {
       volume: 0,
       duration,
       ease: 'power2.out',
@@ -533,11 +879,21 @@
     });
   }
 
+  function stopAllTestimonialAudio(
+    options: { duration?: number; except?: KitchenTestimonialId; resetReplay?: boolean } = {}
+  ) {
+    kitchenTestimonials.forEach((testimonial) => {
+      if (testimonial.id === options.except) return;
+      stopTestimonialAudio(testimonial, options);
+    });
+  }
+
   function onTestimonialPointerDown(event: PointerEvent, testimonial: KitchenTestimonial) {
     event.stopPropagation();
-    if (!testimonial.replayAudio || isAudioMuted) return;
-    hasPlayedChefIntro = false;
-    void playChefIntroAudio();
+    if (!testimonial.audioSrc || isAudioMuted) return;
+    testimonialAudioState[testimonial.id].hasPlayed = false;
+    dismissedTestimonialIds[testimonial.id] = false;
+    void playTestimonialAudio(testimonial);
   }
 
   onMount(() => {
@@ -578,7 +934,7 @@
     return () => {
       constructionAudioEl?.pause();
       kitchenAmbientAudioEl?.pause();
-      chefIntroAudioEl?.pause();
+      stopAllTestimonialAudio({ duration: 0, resetReplay: false });
       void toolShedAudioContext?.close();
       destroyed = true;
       sceneController.destroy();
@@ -698,7 +1054,7 @@
       onpointerdown={(event) => onTestimonialPointerDown(event, testimonial)}
     >
       <span class="speech-bubble" aria-hidden={!isDialogueVisible} data-node-id="3772:1119">
-        <span class="speech-bubble-copy">{testimonial.speech}</span>
+        <span class="speech-bubble-copy">{getVisibleSpeech(testimonial)}</span>
         <span class="speech-bubble-meta" aria-label={testimonial.metaLabel}>
           <span>{testimonial.rolePrefix}</span>
           <strong>{testimonial.name}</strong>
@@ -728,17 +1084,62 @@
 <audio bind:this={constructionAudioEl} src="/sound/cantieresuoni.mp3" preload="auto"></audio>
 <audio bind:this={kitchenAmbientAudioEl} src="/sound/cucinasuoni.mp3" preload="auto"></audio>
 <audio
-  bind:this={chefIntroAudioEl}
+  bind:this={carloAudioEl}
   src="/sound/carlo.mp3"
   preload="auto"
   onplay={() => {
-    if (!chefIntroAudioEl?.muted) isChefIntroAudioPlaying = true;
+    if (!carloAudioEl?.muted) activeTestimonialAudioId = 'carlo';
   }}
+  ontimeupdate={() => syncTestimonialSpeechReveal(carloTestimonial)}
   onpause={() => {
-    isChefIntroAudioPlaying = false;
+    if (activeTestimonialAudioId === 'carlo') activeTestimonialAudioId = undefined;
   }}
   onended={() => {
-    isChefIntroAudioPlaying = false;
+    finishTestimonialDialogue(carloTestimonial);
+  }}
+></audio>
+<audio
+  bind:this={paganiniAudioEl}
+  src="/sound/stefano.mp3"
+  preload="auto"
+  onplay={() => {
+    if (!paganiniAudioEl?.muted) activeTestimonialAudioId = 'paganini';
+  }}
+  ontimeupdate={() => syncTestimonialSpeechReveal(paganiniTestimonial)}
+  onpause={() => {
+    if (activeTestimonialAudioId === 'paganini') activeTestimonialAudioId = undefined;
+  }}
+  onended={() => {
+    finishTestimonialDialogue(paganiniTestimonial);
+  }}
+></audio>
+<audio
+  bind:this={faustoAudioEl}
+  src="/sound/fausto.mp3"
+  preload="auto"
+  onplay={() => {
+    if (!faustoAudioEl?.muted) activeTestimonialAudioId = 'fausto';
+  }}
+  ontimeupdate={() => syncTestimonialSpeechReveal(faustoTestimonial)}
+  onpause={() => {
+    if (activeTestimonialAudioId === 'fausto') activeTestimonialAudioId = undefined;
+  }}
+  onended={() => {
+    finishFaustoFirstDialogue();
+  }}
+></audio>
+<audio
+  bind:this={fausto2AudioEl}
+  src="/sound/fausto2.mp3"
+  preload="auto"
+  onplay={() => {
+    if (!fausto2AudioEl?.muted) activeTestimonialAudioId = 'fausto';
+  }}
+  onpause={() => {
+    if (activeTestimonialAudioId === 'fausto') activeTestimonialAudioId = undefined;
+  }}
+  onended={() => {
+    finishTestimonialDialogue(faustoTestimonial);
   }}
 ></audio>
 
@@ -861,6 +1262,15 @@
     user-select: none;
   }
 
+  .chef-button[data-testimonial='fausto'] img {
+    width: auto;
+    max-width: 100%;
+    max-height: clamp(760px, 62vw, 960px);
+    margin-inline: auto;
+    transform: translate3d(0, clamp(78px, 7.4vw, 128px), 0) scale(1.32);
+    transform-origin: 50% 100%;
+  }
+
   .speech-bubble {
     position: absolute;
     z-index: 7;
@@ -913,10 +1323,27 @@
     font-size: clamp(13px, 1.22vw, 16px);
     font-weight: 400;
     line-height: 1.2;
+    white-space: pre-line;
     word-break: break-word;
     -webkit-clip-path: inset(0 100% 0 0);
     clip-path: inset(0 100% 0 0);
     will-change: clip-path;
+  }
+
+  .chef-button[data-testimonial='carlo'] .speech-bubble {
+    width: clamp(360px, 41vw, 570px);
+    min-height: clamp(190px, 19vw, 252px);
+  }
+
+  .chef-button[data-testimonial='carlo'] .speech-bubble::before {
+    top: clamp(82px, 8.2vw, 110px);
+  }
+
+  .chef-button[data-testimonial='carlo'] .speech-bubble-copy {
+    align-items: flex-start;
+    min-height: clamp(168px, 17vw, 224px);
+    font-size: clamp(12px, 1.04vw, 14px);
+    line-height: 1.26;
   }
 
   .speech-bubble-meta {
@@ -1390,8 +1817,13 @@
   @media (max-width: 760px) {
     .speech-bubble {
       left: 0;
-      bottom: calc(100% + 8px);
+      bottom: calc(100% + 18px);
       width: min(330px, calc(100vw - 64px));
+      min-height: 0;
+    }
+
+    .chef-button[data-testimonial='carlo'] .speech-bubble {
+      width: min(360px, calc(100vw - 48px));
       min-height: 0;
     }
 
@@ -1407,6 +1839,12 @@
       padding: 14px 18px;
       border-width: 2px;
       font-size: 13px;
+    }
+
+    .chef-button[data-testimonial='carlo'] .speech-bubble-copy {
+      min-height: 178px;
+      font-size: 11.5px;
+      line-height: 1.22;
     }
 
     .speech-bubble-meta {
