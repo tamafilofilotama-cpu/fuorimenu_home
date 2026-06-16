@@ -38,8 +38,12 @@
   );
   let { isAudioMuted = false } = $props<{ isAudioMuted?: boolean }>();
   const { bridge } = sceneController;
-  const kitchenAssetVersion = '20260602-svg-control-8';
+  const kitchenAssetVersion = '20260616-parallax-4';
   const kitchenAsset = (name: string) => `/assets/${name}?v=${kitchenAssetVersion}`;
+  const tailStartX = 23600;
+  const tailWidth = 23000;
+  const tailTop = -105;
+  const tailHeight = 1117;
   const toolShedMessage =
     'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
 
@@ -66,18 +70,26 @@
   let hasPlayedToolShedHover = false;
   let hasPlayedStandMixerHover = false;
   let isAmbientAudioStarted = false;
+  let prefersReducedMotion = $state(false);
   let toolShedAudioContext: AudioContext | undefined;
   let toolShedAudioSource: MediaElementAudioSourceNode | undefined;
   let isDragging = $state(false);
   let isSceneLoaded = $state(false);
 
+  const resolvedLayerSpeed = $derived({
+    background: prefersReducedMotion ? 1 : layerSpeed.background,
+    middle: prefersReducedMotion ? 1 : layerSpeed.middle,
+    title: prefersReducedMotion ? 1 : layerSpeed.title,
+    chef: prefersReducedMotion ? 1 : layerSpeed.chef,
+    foreground: prefersReducedMotion ? 1 : layerSpeed.foreground
+  });
   const sceneScale = $derived(viewportHeight ? viewportHeight / sceneHeight : 1);
   const worldWidth = $derived(Math.max(viewportWidth, sceneWidth * sceneScale));
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
 
   const scenePx = (value: number) => px(value, 2);
   const chefPinnedLeftInset = $derived(Math.max(32, Math.min(80, viewportWidth * 0.064)));
-  const chefNaturalLeft = $derived(chef.x * sceneScale - cameraX * layerSpeed.chef);
+  const chefNaturalLeft = $derived(chef.x * sceneScale - cameraX * resolvedLayerSpeed.chef);
   const chefLeft = $derived(Math.max(chefNaturalLeft, chefPinnedLeftInset));
   const isChefPinned = $derived(chefNaturalLeft <= chefPinnedLeftInset);
   const isChefDialogueVisible = $derived(isChefPinned);
@@ -102,6 +114,15 @@
     ].join(';');
   }
 
+  function getTailLayerStyle(factor: number) {
+    return [
+      `width: ${scenePx(tailWidth * sceneScale)}`,
+      `height: ${scenePx(tailHeight * sceneScale)}`,
+      `top: ${scenePx(tailTop * sceneScale)}`,
+      `transform: translate3d(${scenePx(tailStartX * sceneScale - cameraX * factor)}, 0, 0)`
+    ].join(';');
+  }
+
   function getForegroundLayerStyle() {
     const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
 
@@ -109,13 +130,13 @@
       `width: ${scenePx(assetWidth * sceneScale)}`,
       `height: ${scenePx(foregroundSvgHeight * foregroundScale)}`,
       `bottom: ${scenePx(foregroundBottomOffset * sceneScale)}`,
-      `transform: translate3d(${scenePx(-cameraX * layerSpeed.foreground)}, 0, 0)`
+      `transform: translate3d(${scenePx(-cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
     ].join(';');
   }
 
   function getTitleStyle() {
     return [
-      `left: ${scenePx(92 * sceneScale - cameraX * layerSpeed.title)}`,
+      `left: ${scenePx(92 * sceneScale - cameraX * resolvedLayerSpeed.title)}`,
       `top: ${scenePx(viewportHeight / 2 - 132 * sceneScale)}`,
       `font-size: ${scenePx(180 * sceneScale)}`
     ].join(';');
@@ -138,7 +159,7 @@
       `--tool-shed-message-font-size: ${scenePx(16 * sceneScale)}`,
       `--tool-shed-arrow-top: ${scenePx(64 * sceneScale)}`,
       `--tool-shed-arrow-size: ${scenePx(18 * sceneScale)}`,
-      `transform: translate3d(${scenePx(x * sceneScale - cameraX * layerSpeed.foreground)}, 0, 0)`
+      `transform: translate3d(${scenePx(x * sceneScale - cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
     ].join(';');
   }
 
@@ -160,7 +181,7 @@
       `--stand-mixer-arrow-left: ${scenePx(168 * sceneScale)}`,
       `--stand-mixer-arrow-top: ${scenePx(102 * sceneScale)}`,
       `--stand-mixer-arrow-size: ${scenePx(18 * sceneScale)}`,
-      `transform: translate3d(${scenePx(x * sceneScale - cameraX * layerSpeed.foreground)}, 0, 0)`
+      `transform: translate3d(${scenePx(x * sceneScale - cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
     ].join(';');
   }
 
@@ -229,7 +250,7 @@
   function getKitchenAmbientMix() {
     if (!viewportWidth) return 0;
 
-    const standMixerCenterX = (6690 + 77) * sceneScale - cameraX * layerSpeed.foreground;
+    const standMixerCenterX = (6690 + 77) * sceneScale - cameraX * resolvedLayerSpeed.foreground;
     const fadeStartX = viewportWidth * 0.9;
     const fadeEndX = viewportWidth * 0.46;
 
@@ -300,6 +321,14 @@
   onMount(() => {
     let destroyed = false;
     const { resources } = sceneController;
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncReducedMotion = () => {
+      prefersReducedMotion = reducedMotionQuery.matches;
+    };
+
+    syncReducedMotion();
+    reducedMotionQuery.addEventListener('change', syncReducedMotion);
+    resources.add(() => reducedMotionQuery.removeEventListener('change', syncReducedMotion));
     resources.add(bridge.subscribe((state) => {
       cameraX = state.cameraX;
       narrativeProgress = state.progress;
@@ -351,9 +380,16 @@
 >
   <div
     class="parallax-layer reveal-layer background-layer"
-    style={`${getLayerStyle(layerSpeed.background)}; --reveal-delay: 40ms;`}
+    style={`${getLayerStyle(resolvedLayerSpeed.background)}; --reveal-delay: 40ms;`}
   >
-    <img src={kitchenAsset('cucina_layer4b.svg')} alt="" draggable="false" />
+    <img src={kitchenAsset('layer-bg.svg')} alt="" draggable="false" />
+  </div>
+
+  <div
+    class="parallax-layer reveal-layer background-layer tail-layer"
+    style={`${getTailLayerStyle(resolvedLayerSpeed.background)}; --reveal-delay: 40ms;`}
+  >
+    <img src={kitchenAsset('layer-bg-tail.svg')} alt="" draggable="false" />
   </div>
 
   <div
@@ -363,9 +399,16 @@
 
   <div
     class="parallax-layer reveal-layer middle-layer"
-    style={`${getLayerStyle(layerSpeed.middle)}; --reveal-delay: 280ms;`}
+    style={`${getLayerStyle(resolvedLayerSpeed.middle)}; --reveal-delay: 280ms;`}
   >
-    <img src={kitchenAsset('cucina_layer2b.svg')} alt="" draggable="false" />
+    <img src={kitchenAsset('layer-mid.svg')} alt="" draggable="false" />
+  </div>
+
+  <div
+    class="parallax-layer reveal-layer middle-layer tail-layer"
+    style={`${getTailLayerStyle(resolvedLayerSpeed.middle)}; --reveal-delay: 280ms;`}
+  >
+    <img src={kitchenAsset('layer-mid-tail.svg')} alt="" draggable="false" />
   </div>
 
   <h1 class="scene-title" style={getTitleStyle()} aria-label="Cucina">
@@ -373,13 +416,6 @@
       <span style={`--letter-delay: ${280 + index * 70}ms`} aria-hidden="true">{letter}</span>
     {/each}
   </h1>
-
-  <div
-    class="parallax-layer reveal-layer foreground-layer foreground-back-layer"
-    style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
-  >
-    <img src={kitchenAsset('cucina_layer1b_depth_back.svg')} alt="" draggable="false" />
-  </div>
 
   <div
     class="parallax-layer reveal-layer tool-shed-layer"
@@ -446,10 +482,17 @@
   </button>
 
   <div
-    class="parallax-layer reveal-layer foreground-layer foreground-front-layer"
+    class="parallax-layer reveal-layer foreground-layer"
     style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
   >
-    <img src={kitchenAsset('cucina_layer1b_depth_front.svg')} alt="" draggable="false" />
+    <img src={kitchenAsset('layer-fg.svg')} alt="" draggable="false" />
+  </div>
+
+  <div
+    class="parallax-layer reveal-layer foreground-layer tail-layer"
+    style={`${getTailLayerStyle(resolvedLayerSpeed.foreground)}; --reveal-delay: 470ms;`}
+  >
+    <img src={kitchenAsset('layer-fg-tail.svg')} alt="" draggable="false" />
   </div>
 </section>
 
@@ -506,6 +549,11 @@
     width: 100%;
     height: auto;
     user-select: none;
+  }
+
+  .tail-layer img {
+    height: 100%;
+    object-fit: fill;
   }
 
   .background-layer {
@@ -684,10 +732,6 @@
 
   .foreground-layer {
     z-index: 6;
-  }
-
-  .foreground-back-layer {
-    z-index: 4;
   }
 
   .tool-shed-layer {
@@ -910,10 +954,6 @@
   .tool-shed-layer:hover .tool-shed-hover-panel,
   .tool-shed-layer:focus-visible .tool-shed-hover-panel {
     animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .foreground-front-layer {
-    z-index: 6;
   }
 
   @keyframes layerPopIn {

@@ -50,7 +50,9 @@
 
 <main class="game-page">
   <header class="kitchen-topbar" aria-label="Navigazione cucina">
-    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù">FM</a>
+    <a class="logo" href="/?view=brand" aria-label="Vai al brand screen Fuorimenù">
+      <span class="topbar-control-content">FM</span>
+    </a>
     <button
       class="icon-button top-bar-audio"
       type="button"
@@ -58,14 +60,18 @@
       aria-pressed={isAudioMuted}
       onclick={toggleAudioMuted}
     >
-      {#if isAudioMuted}
-        <VolumeOffIcon class="volume-icon" />
-      {:else}
-        <VolumeMaxIcon class="volume-icon volume-max-icon" />
-      {/if}
+      <span class="topbar-control-content" aria-hidden="true">
+        {#if isAudioMuted}
+          <VolumeOffIcon class="volume-icon" />
+        {:else}
+          <VolumeMaxIcon class="volume-icon volume-max-icon" />
+        {/if}
+      </span>
     </button>
     <a class="home-link" href="/?view=cards" aria-label="Torna alle card">
-      <span class="close-icon" aria-hidden="true"></span>
+      <span class="topbar-control-content" aria-hidden="true">
+        <span class="close-icon"></span>
+      </span>
     </a>
   </header>
 
@@ -111,25 +117,16 @@
   }
 
   .logo {
-    width: 51px;
-    color: var(--color-interactive-primary);
     font-family: var(--font-display);
-    font-size: var(--unit-40);
+    font-size: 24px;
+    font-weight: 700;
     line-height: 1;
     text-decoration: none;
-    transition: color 160ms ease;
   }
 
   .home-link {
     grid-column: 3;
-    display: grid;
     justify-self: end;
-    width: var(--button-icon-size);
-    height: var(--button-icon-size);
-    place-items: center;
-    color: var(--color-interactive-primary);
-    cursor: url('/cursors/retrogusto-cursor.svg') 5 5, pointer;
-    transition: color 160ms ease;
   }
 
   .top-bar-audio {
@@ -138,16 +135,87 @@
   }
 
   .icon-button {
-    display: grid;
-    width: var(--button-icon-size);
-    height: var(--button-icon-size);
     padding: 0;
+    font: inherit;
+  }
+
+  .kitchen-topbar .logo,
+  .kitchen-topbar .icon-button,
+  .kitchen-topbar .home-link {
+    --button-depth-x: 0px;
+    --button-depth-y: 6px;
+    --button-lift-x: 0px;
+    --button-lift-y: 0px;
+    --button-hover-scale: 1;
+    --topbar-lift-ease: cubic-bezier(0.18, 1.35, 0.28, 1);
+    --topbar-control-bg: var(--color-surface-page);
+    --topbar-control-fg: var(--color-text-primary);
+    --topbar-control-hover-bg: var(--color-surface-page);
+    --topbar-control-hover-fg: var(--color-text-primary);
+    --topbar-control-depth: var(--color-text-primary);
+
+    position: relative;
+    display: grid;
+    width: 56px;
+    height: 56px;
+    box-sizing: border-box;
     place-items: center;
     border: 0;
+    border-radius: var(--radius-full);
     background: transparent;
-    color: var(--color-interactive-primary);
+    color: var(--topbar-control-fg);
     cursor: url('/cursors/retrogusto-cursor.svg') 5 5, pointer;
-    transition: color 160ms ease, opacity 0.2s ease;
+    isolation: isolate;
+    transform: scale(var(--button-hover-scale));
+    transition:
+      color 160ms ease,
+      opacity 0.2s ease,
+      transform 210ms var(--topbar-lift-ease);
+    will-change: transform;
+  }
+
+  .kitchen-topbar .logo::before,
+  .kitchen-topbar .icon-button::before,
+  .kitchen-topbar .home-link::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border: 2px solid var(--topbar-control-fg);
+    border-radius: var(--radius-full);
+    background: var(--topbar-control-depth);
+    content: '';
+    opacity: 0;
+    transition: opacity 90ms ease;
+  }
+
+  .kitchen-topbar .logo::after,
+  .kitchen-topbar .icon-button::after,
+  .kitchen-topbar .home-link::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border: 2px solid var(--topbar-control-fg);
+    border-radius: var(--radius-full);
+    background: var(--topbar-control-bg);
+    content: '';
+    transform: translate(var(--button-lift-x), var(--button-lift-y));
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      transform 210ms var(--topbar-lift-ease);
+  }
+
+  .topbar-control-content {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    color: currentColor;
+    transform: translate(var(--button-lift-x), var(--button-lift-y));
+    transition:
+      color 160ms ease,
+      transform 210ms var(--topbar-lift-ease);
+    will-change: transform;
   }
 
   .close-icon,
@@ -171,13 +239,49 @@
     transform: rotate(90deg);
   }
 
-  .logo:hover,
-  .logo:focus-visible,
-  .icon-button:hover,
-  .icon-button:focus-visible,
-  .home-link:hover,
-  .home-link:focus-visible {
-    color: var(--color-interactive-hover);
+  .kitchen-topbar .logo:hover,
+  .kitchen-topbar .logo:focus-visible,
+  .kitchen-topbar .icon-button:hover,
+  .kitchen-topbar .icon-button:focus-visible,
+  .kitchen-topbar .home-link:hover,
+  .kitchen-topbar .home-link:focus-visible {
+    --button-lift-x: 0px;
+    --button-lift-y: calc(var(--button-depth-y) * -1);
+    --button-hover-scale: 1;
+    color: var(--topbar-control-hover-fg);
+  }
+
+  .kitchen-topbar .logo:hover::after,
+  .kitchen-topbar .logo:focus-visible::after,
+  .kitchen-topbar .icon-button:hover::after,
+  .kitchen-topbar .icon-button:focus-visible::after,
+  .kitchen-topbar .home-link:hover::after,
+  .kitchen-topbar .home-link:focus-visible::after {
+    border-color: var(--topbar-control-fg);
+    background: var(--topbar-control-hover-bg);
+  }
+
+  .kitchen-topbar .logo:hover::before,
+  .kitchen-topbar .logo:focus-visible::before,
+  .kitchen-topbar .icon-button:hover::before,
+  .kitchen-topbar .icon-button:focus-visible::before,
+  .kitchen-topbar .home-link:hover::before,
+  .kitchen-topbar .home-link:focus-visible::before {
+    opacity: 1;
+  }
+
+  .kitchen-topbar .logo:active,
+  .kitchen-topbar .icon-button:active,
+  .kitchen-topbar .home-link:active {
+    --button-lift-x: 0px;
+    --button-lift-y: -1px;
+    --button-hover-scale: 1;
+  }
+
+  .kitchen-topbar .logo:active::before,
+  .kitchen-topbar .icon-button:active::before,
+  .kitchen-topbar .home-link:active::before {
+    opacity: 1;
   }
 
   .logo:focus-visible,
@@ -217,7 +321,7 @@
     }
 
     .logo {
-      font-size: 34px;
+      font-size: 24px;
     }
   }
 </style>

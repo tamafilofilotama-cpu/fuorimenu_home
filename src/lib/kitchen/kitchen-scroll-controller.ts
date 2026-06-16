@@ -75,6 +75,14 @@ export function mountKitchenScrollController(options: KitchenScrollControllerOpt
   let dragScrollStart = 0;
   let dragging = false;
   let killed = false;
+  const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let prefersReducedMotion = reducedMotionQuery.matches;
+
+  const syncReducedMotion = () => {
+    prefersReducedMotion = reducedMotionQuery.matches;
+  };
+
+  reducedMotionQuery.addEventListener('change', syncReducedMotion);
 
   function getMetrics() {
     return getHorizontalSceneMetrics(options.getViewport(), config.sceneWidth, config.sceneHeight);
@@ -101,14 +109,18 @@ export function mountKitchenScrollController(options: KitchenScrollControllerOpt
 
   function evaluateScene(delta: number, now: number) {
     const metrics = getMetrics();
-    const distance = targetCameraX - cameraX;
-    const frameScale = Math.min(delta / easing.frameDuration, easing.maxFrameScale);
-    const stepAmount = 1 - Math.pow(1 - easing.idle, frameScale);
-
-    if (Math.abs(distance) < easing.snapDistance) {
+    if (prefersReducedMotion) {
       cameraX = targetCameraX;
     } else {
-      cameraX += distance * stepAmount;
+      const distance = targetCameraX - cameraX;
+      const frameScale = Math.min(delta / easing.frameDuration, easing.maxFrameScale);
+      const stepAmount = 1 - Math.pow(1 - easing.idle, frameScale);
+
+      if (Math.abs(distance) < easing.snapDistance) {
+        cameraX = targetCameraX;
+      } else {
+        cameraX += distance * stepAmount;
+      }
     }
 
     cameraX = clamp(cameraX, 0, metrics.maxScrollX);
@@ -186,6 +198,7 @@ export function mountKitchenScrollController(options: KitchenScrollControllerOpt
     bridge,
     destroy() {
       killed = true;
+      reducedMotionQuery.removeEventListener('change', syncReducedMotion);
       gsap.ticker.remove(tick);
       triggers.clear();
       scrollTrigger.kill();

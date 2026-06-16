@@ -1,7 +1,7 @@
 export type KitchenChefId = 'carlo';
 
 export const kitchenSceneConfig = {
-  sceneWidth: 24268,
+  sceneWidth: 46600,
   sceneHeight: 875,
   assetWidth: 24268,
   foregroundSvgWidth: 24268,
@@ -18,7 +18,7 @@ export const kitchenSceneConfig = {
   },
   layerSpeed: {
     background: 0.38,
-    middle: 1.2,
+    middle: 0.82,
     title: 0.8,
     chef: 0.8,
     foreground: 1.14
