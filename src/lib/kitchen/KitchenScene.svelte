@@ -44,6 +44,7 @@
   const tailWidth = 23000;
   const tailTop = -105;
   const tailHeight = 1117;
+  const middleLayerFloorOffset = 28;
   const toolShedMessage =
     'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
 
@@ -88,9 +89,14 @@
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
 
   const scenePx = (value: number) => px(value, 2);
-  const chefPinnedLeftInset = $derived(Math.max(32, Math.min(80, viewportWidth * 0.064)));
+  const chefPinnedLeftInset = $derived(Math.max(16, Math.min(48, viewportWidth * 0.028)));
   const chefNaturalLeft = $derived(chef.x * sceneScale - cameraX * resolvedLayerSpeed.chef);
-  const chefLeft = $derived(Math.max(chefNaturalLeft, chefPinnedLeftInset));
+  const chefLeft = $derived(chefPinnedLeftInset);
+  const chefForegroundWidth = $derived(Math.max(340, Math.min(400, viewportWidth * 0.265)));
+  const chefForegroundBottom = $derived(-Math.max(630, Math.min(620, viewportHeight * 0.66)));
+  const chefEntryProgress = $derived(clamp((narrativeProgress - 0.02) / 0.01, 0, 1));
+  const chefEntryEase = $derived(chefEntryProgress * chefEntryProgress * (3 - 2 * chefEntryProgress));
+  const chefEntryY = $derived((1 - chefEntryEase) * Math.max(420, Math.min(560, viewportHeight * 0.58)));
   const isChefPinned = $derived(chefNaturalLeft <= chefPinnedLeftInset);
   const isChefDialogueVisible = $derived(isChefPinned);
 
@@ -106,19 +112,19 @@
     kitchenController?.scrollBy(delta);
   }
 
-  function getLayerStyle(factor: number, bottomOffset = 0) {
+  function getLayerStyle(factor: number, bottomOffset = 0, verticalOffset = 0) {
     return [
       `width: ${scenePx(assetWidth * sceneScale)}`,
-      `bottom: ${scenePx(bottomOffset * sceneScale)}`,
+      `bottom: ${scenePx((bottomOffset - verticalOffset) * sceneScale)}`,
       `transform: translate3d(${scenePx(-cameraX * factor)}, 0, 0)`
     ].join(';');
   }
 
-  function getTailLayerStyle(factor: number) {
+  function getTailLayerStyle(factor: number, verticalOffset = 0) {
     return [
       `width: ${scenePx(tailWidth * sceneScale)}`,
       `height: ${scenePx(tailHeight * sceneScale)}`,
-      `top: ${scenePx(tailTop * sceneScale)}`,
+      `top: ${scenePx((tailTop + verticalOffset) * sceneScale)}`,
       `transform: translate3d(${scenePx(tailStartX * sceneScale - cameraX * factor)}, 0, 0)`
     ].join(';');
   }
@@ -188,8 +194,10 @@
   function getChefStyle() {
     return [
       `left: ${scenePx(chefLeft)}`,
-      `bottom: ${scenePx(viewportHeight / 20)}`,
-      `width: ${scenePx(chef.width * sceneScale)}`
+      `bottom: ${scenePx(chefForegroundBottom)}`,
+      `width: ${scenePx(chefForegroundWidth)}`,
+      `--chef-entry-y: ${scenePx(chefEntryY)}`,
+      `--chef-entry-opacity: ${chefEntryEase.toFixed(3)}`
     ].join(';');
   }
 
@@ -399,14 +407,14 @@
 
   <div
     class="parallax-layer reveal-layer middle-layer"
-    style={`${getLayerStyle(resolvedLayerSpeed.middle)}; --reveal-delay: 280ms;`}
+    style={`${getLayerStyle(resolvedLayerSpeed.middle, 0, middleLayerFloorOffset)}; --reveal-delay: 280ms;`}
   >
     <img src={kitchenAsset('layer-mid.svg')} alt="" draggable="false" />
   </div>
 
   <div
     class="parallax-layer reveal-layer middle-layer tail-layer"
-    style={`${getTailLayerStyle(resolvedLayerSpeed.middle)}; --reveal-delay: 280ms;`}
+    style={`${getTailLayerStyle(resolvedLayerSpeed.middle, middleLayerFloorOffset)}; --reveal-delay: 280ms;`}
   >
     <img src={kitchenAsset('layer-mid-tail.svg')} alt="" draggable="false" />
   </div>
@@ -464,7 +472,7 @@
   </div>
 
   <button
-    class="chef-button reveal-object"
+    class="chef-button"
     class:is-dialogue-visible={isChefDialogueVisible}
     style={`${getChefStyle()}; --reveal-delay: 390ms;`}
     type="button"
@@ -598,23 +606,18 @@
   }
 
   .chef-button {
-    z-index: 5;
+    z-index: 10;
     display: block;
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--color-text-primary);
     cursor: var(--kitchen-pointer-cursor);
-  }
-
-  .reveal-object {
-    opacity: 0;
-    transform: scale(0.92);
-    transform-origin: 50% 50%;
-  }
-
-  .kitchen-stage.is-loaded .reveal-object {
-    animation: objectPopIn 360ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms) forwards;
+    opacity: var(--chef-entry-opacity, 0);
+    transform: translate3d(0, var(--chef-entry-y, 0), 0);
+    transition:
+      opacity 180ms ease,
+      transform 360ms cubic-bezier(0.18, 1.05, 0.28, 1);
   }
 
   .chef-button img {
@@ -629,7 +632,7 @@
     position: absolute;
     z-index: 7;
     left: calc(100% + clamp(14px, 1.7vw, 24px));
-    bottom: calc(100% - clamp(72px, 7.8vw, 142px));
+    top: clamp(128px, 16vh, 188px);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -1151,18 +1154,6 @@
     }
   }
 
-  @keyframes objectPopIn {
-    0% {
-      opacity: 0;
-      transform: scale(0.92);
-    }
-
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
   @media (max-width: 760px) {
     .speech-bubble {
       left: 0;
@@ -1203,7 +1194,6 @@
       animation: none;
     }
 
-    .reveal-object,
     .tool-shed-layer:hover img,
     .tool-shed-layer:focus-visible img,
     .stand-mixer-layer img,
@@ -1219,6 +1209,7 @@
     .speech-bubble::before,
     .speech-bubble-copy,
     .speech-bubble-meta,
+    .chef-button,
     .object-shine,
     .tool-shed-hover-dialogue,
     .tool-shed-hover-panel,
