@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { gsap } from 'gsap';
   import { onMount } from 'svelte';
   import { kitchenSceneConfig } from './kitchen-scene.config';
   import { createSceneController } from '$lib/scene/controller';
@@ -11,7 +12,6 @@
 
   const {
     assetWidth,
-    chef,
     chefQuote,
     cursorCss,
     floorHeight,
@@ -47,6 +47,58 @@
   const middleLayerFloorOffset = 28;
   const toolShedMessage =
     'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
+  type KitchenTestimonial = {
+    id: 'carlo' | 'paganini';
+    ariaLabel: string;
+    bubbleTop?: string;
+    enterProgress: number;
+    exitProgress?: number;
+    imageAlt: string;
+    imageSrc: string;
+    metaLabel: string;
+    name: string;
+    replayAudio?: boolean;
+    rolePrefix: string;
+    speech: string;
+    widthMax?: number;
+    widthMin?: number;
+    widthVw?: number;
+    bottomOffset?: number;
+  };
+  const kitchenTestimonials: KitchenTestimonial[] = [
+    {
+      id: 'carlo',
+      ariaLabel: 'Testimonianza Carlo Zarri',
+      enterProgress: 0.02,
+      exitProgress: 0.155,
+      imageAlt: '',
+      imageSrc: '/assets/npc_CarloZarri_alt1.svg',
+      metaLabel: 'Chief Executive Chef - Carlo Zarri',
+      name: 'Carlo Zarri',
+      replayAudio: true,
+      rolePrefix: 'Chief Executive Chef - ',
+      speech: chefQuote,
+      bottomOffset: 660
+    },
+    {
+      id: 'paganini',
+      ariaLabel: 'Testimonianza Stefano Paganini',
+      bubbleTop: 'clamp(118px, 15vh, 174px)',
+      enterProgress: 0.168,
+      exitProgress: 0.235,
+      imageAlt: '',
+      imageSrc: '/images/stefano-paganini-figma.png',
+      metaLabel: 'Chef - Stefano Paganini',
+      name: 'Stefano Paganini',
+      rolePrefix: 'Chef - ',
+      speech: 'Ora il racconto passa alla cucina: seguimi tra le casse di ortaggi, da qui inizia un altro pezzo di servizio.',
+      widthMax: 390,
+      widthMin: 330,
+      widthVw: 0.255,
+      bottomOffset: 180
+    }
+  ];
+  const carloTestimonial = kitchenTestimonials[0];
 
   let stageEl: HTMLElement;
   let viewportWidth = $state(0);
@@ -68,9 +120,16 @@
   let standMixerAudioEl: HTMLAudioElement;
   let constructionAudioEl: HTMLAudioElement;
   let kitchenAmbientAudioEl: HTMLAudioElement;
+  let chefIntroAudioEl: HTMLAudioElement;
   let hasPlayedToolShedHover = false;
   let hasPlayedStandMixerHover = false;
+  let hasPlayedChefIntro = false;
+  let hasUnlockedChefIntroAudio = false;
   let isAmbientAudioStarted = false;
+  let isChefIntroAudioStarting = false;
+  let isChefIntroAudioPlaying = $state(false);
+  let chefIntroUnlockPromise: Promise<void> | undefined;
+  let chefIntroPlaybackToken = 0;
   let prefersReducedMotion = $state(false);
   let toolShedAudioContext: AudioContext | undefined;
   let toolShedAudioSource: MediaElementAudioSourceNode | undefined;
@@ -89,16 +148,8 @@
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
 
   const scenePx = (value: number) => px(value, 2);
-  const chefPinnedLeftInset = $derived(Math.max(16, Math.min(48, viewportWidth * 0.028)));
-  const chefNaturalLeft = $derived(chef.x * sceneScale - cameraX * resolvedLayerSpeed.chef);
-  const chefLeft = $derived(chefPinnedLeftInset);
-  const chefForegroundWidth = $derived(Math.max(340, Math.min(400, viewportWidth * 0.265)));
-  const chefForegroundBottom = $derived(-Math.max(630, Math.min(620, viewportHeight * 0.66)));
-  const chefEntryProgress = $derived(clamp((narrativeProgress - 0.02) / 0.01, 0, 1));
-  const chefEntryEase = $derived(chefEntryProgress * chefEntryProgress * (3 - 2 * chefEntryProgress));
-  const chefEntryY = $derived((1 - chefEntryEase) * Math.max(420, Math.min(560, viewportHeight * 0.58)));
-  const isChefPinned = $derived(chefNaturalLeft <= chefPinnedLeftInset);
-  const isChefDialogueVisible = $derived(isChefPinned);
+  const testimonialPinnedLeftInset = $derived(Math.max(16, Math.min(48, viewportWidth * 0.028)));
+  const isChefDialogueVisible = $derived(isTestimonialDialogueVisible(carloTestimonial));
 
   function syncViewport() {
     if (!stageEl) return;
@@ -191,13 +242,40 @@
     ].join(';');
   }
 
-  function getChefStyle() {
+  function smoothProgress(value: number) {
+    return value * value * (3 - 2 * value);
+  }
+
+  function getTestimonialPresence(testimonial: KitchenTestimonial) {
+    const enter = clamp((narrativeProgress - testimonial.enterProgress) / 0.012, 0, 1);
+    const exit =
+      testimonial.exitProgress === undefined
+        ? 1
+        : 1 - clamp((narrativeProgress - testimonial.exitProgress) / 0.012, 0, 1);
+
+    return clamp(smoothProgress(enter) * smoothProgress(exit), 0, 1);
+  }
+
+  function isTestimonialDialogueVisible(testimonial: KitchenTestimonial) {
+    return getTestimonialPresence(testimonial) > 0.94;
+  }
+
+  function getTestimonialStyle(testimonial: KitchenTestimonial) {
+    const presence = getTestimonialPresence(testimonial);
+    const entryY = (1 - presence) * Math.max(420, Math.min(560, viewportHeight * 0.58));
+    const width = Math.max(
+      testimonial.widthMin ?? 340,
+      Math.min(testimonial.widthMax ?? 400, viewportWidth * (testimonial.widthVw ?? 0.265))
+    );
+    const bottomOffset = testimonial.bottomOffset ?? 660;
+
     return [
-      `left: ${scenePx(chefLeft)}`,
-      `bottom: ${scenePx(chefForegroundBottom)}`,
-      `width: ${scenePx(chefForegroundWidth)}`,
-      `--chef-entry-y: ${scenePx(chefEntryY)}`,
-      `--chef-entry-opacity: ${chefEntryEase.toFixed(3)}`
+      `left: ${scenePx(testimonialPinnedLeftInset)}`,
+      `bottom: ${scenePx(-bottomOffset)}`,
+      `width: ${scenePx(width)}`,
+      `--chef-entry-y: ${scenePx(entryY)}`,
+      `--chef-entry-opacity: ${presence.toFixed(3)}`,
+      `--speech-bubble-top: ${testimonial.bubbleTop ?? 'clamp(128px, 16vh, 188px)'}`
     ].join(';');
   }
 
@@ -206,12 +284,14 @@
 
     event.preventDefault();
     void startAmbientAudio();
+    void unlockChefIntroAudio();
     scrollBy(delta * 1.05);
   }
 
   function onPointerDown(event: PointerEvent) {
     isDragging = true;
     void startAmbientAudio();
+    void unlockChefIntroAudio();
     kitchenController?.beginDrag(event.clientX);
     stageEl.setPointerCapture(event.pointerId);
   }
@@ -233,6 +313,7 @@
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
     void startAmbientAudio();
+    void unlockChefIntroAudio();
     scrollBy(event.key === 'ArrowLeft' ? -42 : 42);
   }
 
@@ -242,7 +323,7 @@
     toolShedAudioContext = new AudioContext();
     toolShedAudioSource = toolShedAudioContext.createMediaElementSource(toolShedAudioEl);
     const gain = toolShedAudioContext.createGain();
-    gain.gain.value = 2.8;
+    gain.gain.value = 1.35;
     toolShedAudioSource.connect(gain);
     gain.connect(toolShedAudioContext.destination);
   }
@@ -267,9 +348,27 @@
 
   function setAmbientAudioVolumes() {
     const mix = getKitchenAmbientMix();
+    const voiceDuck = isChefIntroAudioPlaying ? 0.18 : 1;
+    const fadeDuration = isChefIntroAudioPlaying ? 0.36 : 0.72;
+    const constructionVolume = isAudioMuted ? 0 : 0.13 * (1 - mix) * voiceDuck;
+    const kitchenVolume = isAudioMuted ? 0 : 0.26 * mix * voiceDuck;
 
-    if (constructionAudioEl) constructionAudioEl.volume = isAudioMuted ? 0 : 0.24 * (1 - mix);
-    if (kitchenAmbientAudioEl) kitchenAmbientAudioEl.volume = isAudioMuted ? 0 : 0.48 * mix;
+    if (constructionAudioEl) {
+      gsap.to(constructionAudioEl, {
+        volume: constructionVolume,
+        duration: fadeDuration,
+        ease: 'power2.out',
+        overwrite: true
+      });
+    }
+    if (kitchenAmbientAudioEl) {
+      gsap.to(kitchenAmbientAudioEl, {
+        volume: kitchenVolume,
+        duration: fadeDuration,
+        ease: 'power2.out',
+        overwrite: true
+      });
+    }
   }
 
   async function startAmbientAudio() {
@@ -299,9 +398,23 @@
 
     toolShedAudioEl?.pause();
     standMixerAudioEl?.pause();
+    stopChefIntroAudio({ duration: 0, resetReplay: false });
     constructionAudioEl?.pause();
     kitchenAmbientAudioEl?.pause();
     isAmbientAudioStarted = false;
+  });
+
+  $effect(() => {
+    if (isAudioMuted) return;
+
+    if (isChefDialogueVisible) {
+      if (!hasPlayedChefIntro && !isChefIntroAudioStarting) void playChefIntroAudio();
+      return;
+    }
+
+    if (isChefIntroAudioPlaying || isChefIntroAudioStarting || !chefIntroAudioEl?.paused) {
+      stopChefIntroAudio();
+    }
   });
 
   function playToolShedHoverSound() {
@@ -309,7 +422,7 @@
     hasPlayedToolShedHover = true;
     boostToolShedAudio();
     void toolShedAudioContext?.resume();
-    playHoverSound(toolShedAudioEl, 0.72);
+    playHoverSound(toolShedAudioEl, 0.34);
   }
 
   function resetToolShedHoverSound() {
@@ -319,11 +432,112 @@
   function playStandMixerHoverSound() {
     if (hasPlayedStandMixerHover) return;
     hasPlayedStandMixerHover = true;
-    playHoverSound(standMixerAudioEl, 0.44);
+    playHoverSound(standMixerAudioEl, 0.24);
   }
 
   function resetStandMixerHoverSound() {
     hasPlayedStandMixerHover = false;
+  }
+
+  function unlockChefIntroAudio() {
+    if (
+      isAudioMuted ||
+      hasUnlockedChefIntroAudio ||
+      hasPlayedChefIntro ||
+      isChefIntroAudioPlaying ||
+      !chefIntroAudioEl
+    ) {
+      return Promise.resolve();
+    }
+    if (chefIntroUnlockPromise) return chefIntroUnlockPromise;
+
+    chefIntroUnlockPromise = (async () => {
+      const previousMuted = chefIntroAudioEl.muted;
+      const previousVolume = chefIntroAudioEl.volume;
+
+      try {
+        chefIntroAudioEl.muted = true;
+        chefIntroAudioEl.volume = 0;
+        await chefIntroAudioEl.play();
+        chefIntroAudioEl.pause();
+        chefIntroAudioEl.currentTime = 0;
+        hasUnlockedChefIntroAudio = true;
+      } catch {
+        hasUnlockedChefIntroAudio = false;
+      } finally {
+        chefIntroAudioEl.volume = previousVolume;
+        chefIntroAudioEl.muted = previousMuted;
+        chefIntroUnlockPromise = undefined;
+      }
+    })();
+
+    return chefIntroUnlockPromise;
+  }
+
+  async function playChefIntroAudio() {
+    if (isAudioMuted || hasPlayedChefIntro || isChefIntroAudioStarting || !chefIntroAudioEl) return;
+
+    isChefIntroAudioStarting = true;
+    if (chefIntroUnlockPromise) await chefIntroUnlockPromise;
+    if (isAudioMuted || hasPlayedChefIntro || !chefIntroAudioEl) {
+      isChefIntroAudioStarting = false;
+      return;
+    }
+
+    chefIntroAudioEl.pause();
+    chefIntroAudioEl.currentTime = 0;
+    chefIntroAudioEl.muted = false;
+    chefIntroAudioEl.volume = 1;
+    isChefIntroAudioPlaying = true;
+    const playbackToken = ++chefIntroPlaybackToken;
+
+    try {
+      await chefIntroAudioEl.play();
+      if (playbackToken === chefIntroPlaybackToken) hasPlayedChefIntro = true;
+    } catch {
+      isChefIntroAudioPlaying = false;
+    } finally {
+      isChefIntroAudioStarting = false;
+    }
+  }
+
+  function stopChefIntroAudio(options: { duration?: number; resetReplay?: boolean } = {}) {
+    if (!chefIntroAudioEl) return;
+
+    const duration = options.duration ?? 0.46;
+    const resetReplay = options.resetReplay ?? true;
+    chefIntroPlaybackToken += 1;
+    isChefIntroAudioStarting = false;
+    if (resetReplay) hasPlayedChefIntro = false;
+
+    gsap.killTweensOf(chefIntroAudioEl);
+
+    const afterStop = () => {
+      chefIntroAudioEl.pause();
+      chefIntroAudioEl.currentTime = 0;
+      chefIntroAudioEl.volume = 1;
+      isChefIntroAudioPlaying = false;
+    };
+
+    if (duration <= 0 || chefIntroAudioEl.paused) {
+      afterStop();
+      return;
+    }
+
+    gsap.to(chefIntroAudioEl, {
+      volume: 0,
+      duration,
+      ease: 'power2.out',
+      overwrite: true,
+      onComplete: afterStop
+    });
+  }
+
+  function onTestimonialPointerDown(event: PointerEvent, testimonial: KitchenTestimonial) {
+    event.stopPropagation();
+    if (!testimonial.replayAudio || isAudioMuted) return;
+    hasPlayedChefIntro = false;
+    void playChefIntroAudio();
   }
 
   onMount(() => {
@@ -364,6 +578,7 @@
     return () => {
       constructionAudioEl?.pause();
       kitchenAmbientAudioEl?.pause();
+      chefIntroAudioEl?.pause();
       void toolShedAudioContext?.close();
       destroyed = true;
       sceneController.destroy();
@@ -471,23 +686,27 @@
     </span>
   </div>
 
-  <button
-    class="chef-button"
-    class:is-dialogue-visible={isChefDialogueVisible}
-    style={`${getChefStyle()}; --reveal-delay: 390ms;`}
-    type="button"
-    aria-label="Testimonianza Carlo Zarri"
-    onpointerdown={(event) => event.stopPropagation()}
-  >
-    <span class="speech-bubble" aria-hidden={!isChefDialogueVisible} data-node-id="3772:1119">
-      <span class="speech-bubble-copy">{chefQuote}</span>
-      <span class="speech-bubble-meta" aria-label="Chief Executive Chef - Carlo Zarri">
-        <span>Chief Executive Chef - </span>
-        <strong>Carlo Zarri</strong>
+  {#each kitchenTestimonials as testimonial (testimonial.id)}
+    {@const isDialogueVisible = isTestimonialDialogueVisible(testimonial)}
+    <button
+      class="chef-button"
+      class:is-dialogue-visible={isDialogueVisible}
+      data-testimonial={testimonial.id}
+      style={`${getTestimonialStyle(testimonial)}; --reveal-delay: 390ms;`}
+      type="button"
+      aria-label={testimonial.ariaLabel}
+      onpointerdown={(event) => onTestimonialPointerDown(event, testimonial)}
+    >
+      <span class="speech-bubble" aria-hidden={!isDialogueVisible} data-node-id="3772:1119">
+        <span class="speech-bubble-copy">{testimonial.speech}</span>
+        <span class="speech-bubble-meta" aria-label={testimonial.metaLabel}>
+          <span>{testimonial.rolePrefix}</span>
+          <strong>{testimonial.name}</strong>
+        </span>
       </span>
-    </span>
-    <img src="/assets/npc_CarloZarri_alt1.svg" alt="" draggable="false" />
-  </button>
+      <img src={testimonial.imageSrc} alt={testimonial.imageAlt} draggable="false" />
+    </button>
+  {/each}
 
   <div
     class="parallax-layer reveal-layer foreground-layer"
@@ -508,6 +727,20 @@
 <audio bind:this={standMixerAudioEl} src="/sound/mixer.mp3" preload="auto"></audio>
 <audio bind:this={constructionAudioEl} src="/sound/cantieresuoni.mp3" preload="auto"></audio>
 <audio bind:this={kitchenAmbientAudioEl} src="/sound/cucinasuoni.mp3" preload="auto"></audio>
+<audio
+  bind:this={chefIntroAudioEl}
+  src="/sound/carlo.mp3"
+  preload="auto"
+  onplay={() => {
+    if (!chefIntroAudioEl?.muted) isChefIntroAudioPlaying = true;
+  }}
+  onpause={() => {
+    isChefIntroAudioPlaying = false;
+  }}
+  onended={() => {
+    isChefIntroAudioPlaying = false;
+  }}
+></audio>
 
 <style>
   .kitchen-stage {
@@ -632,7 +865,7 @@
     position: absolute;
     z-index: 7;
     left: calc(100% + clamp(14px, 1.7vw, 24px));
-    top: clamp(128px, 16vh, 188px);
+    top: var(--speech-bubble-top, clamp(128px, 16vh, 188px));
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
