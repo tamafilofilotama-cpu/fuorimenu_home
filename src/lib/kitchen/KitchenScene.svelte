@@ -37,7 +37,7 @@
   );
   let { isAudioMuted = false } = $props<{ isAudioMuted?: boolean }>();
   const { bridge } = sceneController;
-  const kitchenAssetVersion = '20260616-parallax-4';
+  const kitchenAssetVersion = '20260617-tail-natural-1';
   const kitchenAsset = (name: string) => `/assets/${name}?v=${kitchenAssetVersion}`;
   const testimonialHandoffSticky = {
     maxFactor: 0.66,
@@ -47,15 +47,23 @@
   };
   const tailStartX = 23600;
   const tailWidth = 23000;
-  const tailTop = -105;
   const tailHeight = 1117;
-  const middleLayerFloorOffset = 28;
+  const tailViewportTop = 105;
+  // Keep depth bands explicit: layer 2 sits in the middle floor band, foreground stays lower.
+  const floorDepthZones = {
+    middle: 0,
+    foreground: 0,
+    tailMiddleTop: tailViewportTop,
+    tailForegroundTop: 0
+  };
   const toolShedMessage =
     'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
   const carloSpeech =
     "C'erano grosse difficoltà su Santa Giulia. Il 30 di gennaio era ancora un cantiere, quindi si entrava con l'elmetto col giubbotto catarifrangente; la situazione era veramente drammatica.\nDa dicembre 2025 abbiamo cambiato completamente la strategia per quel sito, perché era un sito che si sapeva che avrebbe avuto delle grosse difficoltà, perché a volte si faceva anche fino a 11.000 spettatori per tre gare al giorno.";
   const faustoSecondAudioPauseMs = 700;
   const faustoSecondAudioStartTime = 25.9;
+  const faustoSecondSpeech =
+    'Io avevo 8 chef, quindi uno per ogni sito, con cui avevo più contatti diretti. Ogni chef aveva questa sua brigata in base alla grandezza del luogo dove operava. Brunico aveva uno chef, due sous-chef e 15 ragazzi.';
   type KitchenTestimonialId = 'carlo' | 'paganini' | 'fausto';
   type KitchenTestimonial = {
     id: KitchenTestimonialId;
@@ -73,6 +81,8 @@
     revealDurationSeconds?: number;
     rolePrefix: string;
     revealSpeechWithAudio?: boolean;
+    secondRevealDurationSeconds?: number;
+    secondSpeech?: string;
     speech: string;
     widthMax?: number;
     widthMin?: number;
@@ -124,7 +134,7 @@
       bubbleTop: 'clamp(16px, 2.5vh, 38px)',
       dialogueVisibleThreshold: 0.16,
       enterProgress: 0.248,
-      exitProgress: 0.315,
+      exitProgress: 0.55,
       imageAlt: '',
       imageSrc: '/images/fausto.png',
       metaLabel: 'Chef - Fausto',
@@ -132,6 +142,8 @@
       revealDurationSeconds: 12,
       rolePrefix: 'Chef - ',
       revealSpeechWithAudio: true,
+      secondRevealDurationSeconds: 15,
+      secondSpeech: faustoSecondSpeech,
       speech:
         "Sei istituti alberghieri, tra cui l'Istituto di Busto Arsizio, l'Istituto Lagrange di Milano, l'Istituto di Bormio, l'Istituto di Cortina e l'Istituto di Brunico ci hanno aiutato per effettuare tutte le tipologie di servizi.",
       widthMax: 390,
@@ -202,6 +214,7 @@
   let faustoAudioEl: HTMLAudioElement;
   let fausto2AudioEl: HTMLAudioElement;
   let faustoSecondAudioTimer: ReturnType<typeof setTimeout> | undefined;
+  let faustoSpeechPart = $state<1 | 2>(1);
   let hasPlayedToolShedHover = false;
   let hasPlayedStandMixerHover = false;
   let isAmbientAudioStarted = false;
@@ -296,30 +309,34 @@
     return delta * factor;
   }
 
-  function getLayerStyle(factor: number, bottomOffset = 0, verticalOffset = 0) {
+  function getLayerStyle(factor: number, bottomOffset = 0) {
     return [
       `width: ${scenePx(assetWidth * sceneScale)}`,
-      `bottom: ${scenePx((bottomOffset - verticalOffset) * sceneScale)}`,
+      `bottom: ${scenePx(bottomOffset * sceneScale)}`,
       `transform: translate3d(${scenePx(-cameraX * factor)}, 0, 0)`
     ].join(';');
   }
 
-  function getTailLayerStyle(factor: number, verticalOffset = 0) {
+  function getTailLayerStyle(factor: number, viewportTop = 0) {
+    const fitToStage = viewportTop <= 0;
+
     return [
       `width: ${scenePx(tailWidth * sceneScale)}`,
-      `height: ${scenePx(tailHeight * sceneScale)}`,
-      `top: ${scenePx((tailTop + verticalOffset) * sceneScale)}`,
+      `height: ${scenePx((fitToStage ? sceneHeight : tailHeight) * sceneScale)}`,
+      fitToStage
+        ? `bottom: 0px`
+        : `top: ${scenePx(-viewportTop * sceneScale)}`,
       `transform: translate3d(${scenePx(tailStartX * sceneScale - cameraX * factor)}, 0, 0)`
     ].join(';');
   }
 
-  function getForegroundLayerStyle() {
+  function getForegroundLayerStyle(bottomOffset = 0) {
     const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
 
     return [
       `width: ${scenePx(assetWidth * sceneScale)}`,
       `height: ${scenePx(foregroundSvgHeight * foregroundScale)}`,
-      `bottom: ${scenePx(foregroundBottomOffset * sceneScale)}`,
+      `bottom: ${scenePx((foregroundBottomOffset + bottomOffset) * sceneScale)}`,
       `transform: translate3d(${scenePx(-cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
     ].join(';');
   }
@@ -422,13 +439,15 @@
   }
 
   function getVisibleSpeech(testimonial: KitchenTestimonial) {
-    if (!testimonial.revealSpeechWithAudio) return testimonial.speech;
+    const speech =
+      testimonial.id === 'fausto' && faustoSpeechPart === 2 && testimonial.secondSpeech
+        ? testimonial.secondSpeech
+        : testimonial.speech;
+    if (!testimonial.revealSpeechWithAudio) return speech;
 
-    const visibleLength = Math.ceil(
-      testimonial.speech.length * testimonialRevealProgress[testimonial.id]
-    );
+    const visibleLength = Math.ceil(speech.length * testimonialRevealProgress[testimonial.id]);
 
-    return testimonial.speech.slice(0, visibleLength);
+    return speech.slice(0, visibleLength);
   }
 
   function resetTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
@@ -439,7 +458,10 @@
     testimonialAudioState[testimonial.id].hasPlayed = false;
     dismissedTestimonialIds[testimonial.id] = false;
     resetTestimonialSpeechReveal(testimonial);
-    if (testimonial.id === 'fausto') clearFaustoSecondAudioTimer();
+    if (testimonial.id === 'fausto') {
+      faustoSpeechPart = 1;
+      clearFaustoSecondAudioTimer();
+    }
   }
 
   function completeTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
@@ -475,6 +497,8 @@
     fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
     fausto2AudioEl.muted = false;
     fausto2AudioEl.volume = 1;
+    faustoSpeechPart = 2;
+    testimonialRevealProgress.fausto = 0;
     activeTestimonialAudioId = 'fausto';
 
     try {
@@ -487,6 +511,23 @@
   function finishFaustoFirstDialogue() {
     completeTestimonialSpeechReveal(faustoTestimonial);
     queueFaustoSecondAudio();
+  }
+
+  function finishFaustoSecondDialogue() {
+    completeTestimonialSpeechReveal(faustoTestimonial);
+    if (activeTestimonialAudioId === 'fausto') activeTestimonialAudioId = undefined;
+  }
+
+  function syncFaustoSecondSpeechReveal() {
+    if (!fausto2AudioEl) return;
+
+    const revealDuration = faustoTestimonial.secondRevealDurationSeconds ?? 1;
+    testimonialRevealProgress.fausto = clamp(
+      (fausto2AudioEl.currentTime - faustoSecondAudioStartTime) /
+        Math.max(revealDuration, 0.001),
+      0,
+      1
+    );
   }
 
   function syncTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
@@ -811,6 +852,7 @@
     audio.muted = false;
     audio.volume = 1;
     dismissedTestimonialIds[testimonial.id] = false;
+    if (testimonial.id === 'fausto') faustoSpeechPart = 1;
     resetTestimonialSpeechReveal(testimonial);
     activeTestimonialAudioId = testimonial.id;
     const playbackToken = ++state.playbackToken;
@@ -978,14 +1020,14 @@
 
   <div
     class="parallax-layer reveal-layer middle-layer"
-    style={`${getLayerStyle(resolvedLayerSpeed.middle, 0, middleLayerFloorOffset)}; --reveal-delay: 280ms;`}
+    style={`${getLayerStyle(resolvedLayerSpeed.middle, floorDepthZones.middle)}; --reveal-delay: 280ms;`}
   >
     <img src={kitchenAsset('layer-mid.svg')} alt="" draggable="false" />
   </div>
 
   <div
     class="parallax-layer reveal-layer middle-layer tail-layer"
-    style={`${getTailLayerStyle(resolvedLayerSpeed.middle, middleLayerFloorOffset)}; --reveal-delay: 280ms;`}
+    style={`${getTailLayerStyle(resolvedLayerSpeed.middle, floorDepthZones.tailMiddleTop)}; --reveal-delay: 280ms;`}
   >
     <img src={kitchenAsset('layer-mid-tail.svg')} alt="" draggable="false" />
   </div>
@@ -1066,14 +1108,14 @@
 
   <div
     class="parallax-layer reveal-layer foreground-layer"
-    style={`${getForegroundLayerStyle()}; --reveal-delay: 470ms;`}
+    style={`${getForegroundLayerStyle(floorDepthZones.foreground)}; --reveal-delay: 470ms;`}
   >
     <img src={kitchenAsset('layer-fg.svg')} alt="" draggable="false" />
   </div>
 
   <div
     class="parallax-layer reveal-layer foreground-layer tail-layer"
-    style={`${getTailLayerStyle(resolvedLayerSpeed.foreground)}; --reveal-delay: 470ms;`}
+    style={`${getTailLayerStyle(resolvedLayerSpeed.foreground, floorDepthZones.tailForegroundTop)}; --reveal-delay: 470ms;`}
   >
     <img src={kitchenAsset('layer-fg-tail.svg')} alt="" draggable="false" />
   </div>
@@ -1135,11 +1177,12 @@
   onplay={() => {
     if (!fausto2AudioEl?.muted) activeTestimonialAudioId = 'fausto';
   }}
+  ontimeupdate={syncFaustoSecondSpeechReveal}
   onpause={() => {
     if (activeTestimonialAudioId === 'fausto') activeTestimonialAudioId = undefined;
   }}
   onended={() => {
-    finishTestimonialDialogue(faustoTestimonial);
+    finishFaustoSecondDialogue();
   }}
 ></audio>
 

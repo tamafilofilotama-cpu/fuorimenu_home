@@ -365,7 +365,8 @@
       speaker: 'Carlo Zarri',
       dialogue: "il mio ruolo ... seguimi nell'ufficio per saperne di più",
       hoverText: "io sono carlo zarri seguimi nell'ufficio",
-      personSrc: '/images/carlo-zarri-figma.png'
+      personSrc: '/images/carlo-zarri-figma.png',
+      href: '/ufficio'
     },
     {
       title: 'cucina',
@@ -788,7 +789,10 @@
       gsap.timeline({
         defaults: { ease: 'power3.inOut' },
         onComplete: () => {
-          sessionStorage.setItem('kitchen-card-transition', '1');
+          sessionStorage.setItem('role-card-transition', '1');
+          if (item.title === 'cucina') {
+            sessionStorage.setItem('kitchen-card-transition', '1');
+          }
           void goto(item.href as string);
         }
       })
