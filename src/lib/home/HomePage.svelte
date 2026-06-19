@@ -2952,7 +2952,7 @@
     overflow: hidden;
     border: 2px solid var(--color-border-primary);
     border-radius: var(--role-card-radius);
-    background: var(--role-card-fill, var(--color-surface-page));
+    background: var(--color-surface-page);
     transform: translateY(var(--role-card-lift-y, 0px));
     transition: transform 210ms cubic-bezier(0.18, 1.35, 0.28, 1);
     will-change: transform;
@@ -2962,11 +2962,12 @@
     position: absolute;
     z-index: 3;
     inset: 0;
-    background: rgb(248 243 233 / 0.6);
+    background: var(--role-card-fill, transparent);
     content: '';
     mix-blend-mode: plus-darker;
-    opacity: 1;
+    opacity: 0;
     pointer-events: none;
+    transition: opacity 180ms ease;
   }
 
   .role-card-bg {
@@ -2977,7 +2978,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center center;
-    opacity: 0.48;
+    opacity: 0;
     filter: grayscale(1) sepia(0.16) opacity(0.72);
     transform:
       translateX(var(--role-bg-x, 0px))
@@ -2993,7 +2994,7 @@
     z-index: 2;
     inset: 0;
     background: var(--role-card-fill, transparent);
-    opacity: 0.22;
+    opacity: 0;
     mix-blend-mode: plus-darker;
     transition: opacity 180ms ease;
     pointer-events: none;
@@ -3001,7 +3002,7 @@
 
   .role-card:hover .role-card-bg-overlay,
   .role-card:focus-visible .role-card-bg-overlay {
-    opacity: 0.28;
+    opacity: 0.34;
   }
 
   .role-hover-panel {
@@ -3125,7 +3126,7 @@
 
   .role-card.has-person-fill .role-person-outline {
     z-index: 5;
-    opacity: 0.16;
+    opacity: 0;
     transform:
       translateX(calc(-50% + var(--role-person-base-x, 0px) + var(--role-person-x, 0px)))
       translateY(calc(var(--role-person-base-y, 0px) + var(--role-person-y, 0px)));
@@ -3174,6 +3175,11 @@
       translateX(var(--role-bg-x, 0px))
       translateY(var(--role-bg-y, 0px))
       scale(1);
+  }
+
+  .role-card.has-dialogue:hover .role-card-top::before,
+  .role-card.has-dialogue:focus-visible .role-card-top::before {
+    opacity: 0.48;
   }
 
   .role-card.has-dialogue:hover .role-card-copy,

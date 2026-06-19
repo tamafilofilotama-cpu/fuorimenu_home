@@ -1,9 +1,11 @@
 <script lang="ts">
   import { gsap } from 'gsap';
   import { onMount } from 'svelte';
-  import { kitchenSceneConfig } from './kitchen-scene.config';
+  import { kitchenAssetVersion, kitchenAssets, kitchenSceneConfig } from './kitchen-scene.config';
   import { createSceneController } from '$lib/scene/controller';
   import { clamp, px } from '$lib/scene/math';
+  import type { InteractiveSceneAsset, SceneAsset } from '$lib/scene/scene-asset.types';
+  import { getSceneAssetStyle } from '$lib/scene/scene-utils';
   import { createViewportObserver } from '$lib/scene/viewport';
   import type {
     KitchenControllerEvents,
@@ -11,14 +13,10 @@
   } from '$lib/kitchen/kitchen-scroll-controller';
 
   const {
-    assetWidth,
     cursorCss,
     floorHeight,
     floorBottomOffset,
     floorTileWidth,
-    foregroundBottomOffset,
-    foregroundSvgHeight,
-    foregroundSvgWidth,
     layerSpeed,
     pointerCursorCss,
     sceneHeight,
@@ -37,7 +35,6 @@
   );
   let { isAudioMuted = false } = $props<{ isAudioMuted?: boolean }>();
   const { bridge } = sceneController;
-  const kitchenAssetVersion = '20260617-tail-natural-1';
   const kitchenAsset = (name: string) => `/assets/${name}?v=${kitchenAssetVersion}`;
   const testimonialHandoffSticky = {
     maxFactor: 0.66,
@@ -46,18 +43,6 @@
     zoneBeforeNext: 0.064
   };
   const tailStartX = 23600;
-  const tailWidth = 23000;
-  const tailHeight = 1117;
-  const tailViewportTop = 105;
-  // Keep depth bands explicit: layer 2 sits in the middle floor band, foreground stays lower.
-  const floorDepthZones = {
-    middle: 0,
-    foreground: 0,
-    tailMiddleTop: tailViewportTop,
-    tailForegroundTop: 0
-  };
-  const toolShedMessage =
-    'li devi trattare bene, devi dargli dei pasti molto caldi, magari dargli anche il tè o il caffè 24 ore al giorno';
   const carloSpeech =
     "C'erano grosse difficoltà su Santa Giulia. Il 30 di gennaio era ancora un cantiere, quindi si entrava con l'elmetto col giubbotto catarifrangente; la situazione era veramente drammatica.\nDa dicembre 2025 abbiamo cambiato completamente la strategia per quel sito, perché era un sito che si sapeva che avrebbe avuto delle grosse difficoltà, perché a volte si faceva anche fino a 11.000 spettatori per tre gare al giorno.";
   const faustoSecondAudioPauseMs = 700;
@@ -309,38 +294,6 @@
     return delta * factor;
   }
 
-  function getLayerStyle(factor: number, bottomOffset = 0) {
-    return [
-      `width: ${scenePx(assetWidth * sceneScale)}`,
-      `bottom: ${scenePx(bottomOffset * sceneScale)}`,
-      `transform: translate3d(${scenePx(-cameraX * factor)}, 0, 0)`
-    ].join(';');
-  }
-
-  function getTailLayerStyle(factor: number, viewportTop = 0) {
-    const fitToStage = viewportTop <= 0;
-
-    return [
-      `width: ${scenePx(tailWidth * sceneScale)}`,
-      `height: ${scenePx((fitToStage ? sceneHeight : tailHeight) * sceneScale)}`,
-      fitToStage
-        ? `bottom: 0px`
-        : `top: ${scenePx(-viewportTop * sceneScale)}`,
-      `transform: translate3d(${scenePx(tailStartX * sceneScale - cameraX * factor)}, 0, 0)`
-    ].join(';');
-  }
-
-  function getForegroundLayerStyle(bottomOffset = 0) {
-    const foregroundScale = (assetWidth / foregroundSvgWidth) * sceneScale;
-
-    return [
-      `width: ${scenePx(assetWidth * sceneScale)}`,
-      `height: ${scenePx(foregroundSvgHeight * foregroundScale)}`,
-      `bottom: ${scenePx((foregroundBottomOffset + bottomOffset) * sceneScale)}`,
-      `transform: translate3d(${scenePx(-cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
-    ].join(';');
-  }
-
   function getTitleStyle() {
     return [
       `left: ${scenePx(92 * sceneScale - cameraX * resolvedLayerSpeed.title)}`,
@@ -349,47 +302,66 @@
     ].join(';');
   }
 
-  function getToolShedStyle() {
-    const x = 5500;
-    const width = 166.747;
-    const height = 180.446;
-    const y = 595 - height;
-
+  function getAssetClass(asset: SceneAsset) {
     return [
-      `width: ${scenePx(width * sceneScale)}`,
-      `height: ${scenePx(height * sceneScale)}`,
-      `bottom: ${scenePx((sceneHeight - y - height) * sceneScale)}`,
-      `--tool-shed-message-left: ${scenePx(190 * sceneScale)}`,
-      `--tool-shed-message-top: ${scenePx(36 * sceneScale)}`,
-      `--tool-shed-message-width: ${scenePx(322 * sceneScale)}`,
-      `--tool-shed-message-padding: ${scenePx(20 * sceneScale)}`,
-      `--tool-shed-message-font-size: ${scenePx(16 * sceneScale)}`,
-      `--tool-shed-arrow-top: ${scenePx(64 * sceneScale)}`,
-      `--tool-shed-arrow-size: ${scenePx(18 * sceneScale)}`,
-      `transform: translate3d(${scenePx(x * sceneScale - cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
+      'parallax-layer',
+      'scene-asset',
+      'reveal-layer',
+      `${asset.layer}-layer`,
+      `layer-${asset.layer}`,
+      asset.isTail ? 'tail-layer' : '',
+      asset.kind === 'interactive' ? 'interactive-asset' : '',
+      asset.kind === 'interactive' ? `${asset.id}-layer` : ''
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function getAssetStyle(asset: SceneAsset) {
+    return getSceneAssetStyle(
+      asset,
+      cameraX,
+      sceneHeight,
+      sceneScale,
+      resolvedLayerSpeed,
+      tailStartX
+    );
+  }
+
+  function getFloorStyle() {
+    return [
+      `height: ${scenePx(floorHeight * sceneScale)}`,
+      `bottom: ${scenePx(floorBottomOffset * sceneScale)}`,
+      `background-size: ${scenePx(floorTileWidth * sceneScale)} ${scenePx(floorHeight * sceneScale)}`,
+      `background-position-x: ${scenePx(-cameraX)}`,
+      '--reveal-delay: 160ms',
+      '--reveal-duration: 320ms'
     ].join(';');
   }
 
-  function getStandMixerStyle() {
-    const x = 6690;
-    const width = 154;
-    const height = 160;
-    const y = 545 - height;
+  function getInteractiveAssetStyle(asset: InteractiveSceneAsset) {
+    const style = [getAssetStyle(asset)];
+    const placement = asset.hoverDialoguePlacement;
+    if (!placement) return style.join(';');
 
-    return [
-      `width: ${scenePx(width * sceneScale)}`,
-      `height: ${scenePx(height * sceneScale)}`,
-      `bottom: ${scenePx((sceneHeight - y - height) * sceneScale)}`,
-      `--stand-mixer-message-left: ${scenePx(168 * sceneScale)}`,
-      `--stand-mixer-message-top: ${scenePx(8 * sceneScale)}`,
-      `--stand-mixer-message-width: ${scenePx(322 * sceneScale)}`,
-      `--stand-mixer-message-padding: ${scenePx(20 * sceneScale)}`,
-      `--stand-mixer-message-font-size: ${scenePx(16 * sceneScale)}`,
-      `--stand-mixer-arrow-left: ${scenePx(168 * sceneScale)}`,
-      `--stand-mixer-arrow-top: ${scenePx(102 * sceneScale)}`,
-      `--stand-mixer-arrow-size: ${scenePx(18 * sceneScale)}`,
-      `transform: translate3d(${scenePx(x * sceneScale - cameraX * resolvedLayerSpeed.foreground)}, 0, 0)`
-    ].join(';');
+    const prefix = asset.id;
+    const arrowLeft = placement.arrowLeft ?? placement.left;
+    style.push(
+      `--${prefix}-message-left: ${scenePx(placement.left * sceneScale)}`,
+      `--${prefix}-message-top: ${scenePx(placement.top * sceneScale)}`,
+      `--${prefix}-message-width: ${scenePx(placement.width * sceneScale)}`,
+      `--${prefix}-message-padding: ${scenePx(placement.padding * sceneScale)}`,
+      `--${prefix}-message-font-size: ${scenePx(placement.fontSize * sceneScale)}`,
+      `--${prefix}-arrow-left: ${scenePx(arrowLeft * sceneScale)}`,
+      `--${prefix}-arrow-top: ${scenePx(placement.arrowTop * sceneScale)}`,
+      `--${prefix}-arrow-size: ${scenePx(placement.arrowSize * sceneScale)}`
+    );
+
+    return style.join(';');
+  }
+
+  function getInteractivePartClass(asset: InteractiveSceneAsset, part: 'dialogue' | 'arrow' | 'panel' | 'copy') {
+    return `${asset.id}-hover-${part} hover-${part}`;
   }
 
   function smoothProgress(value: number) {
@@ -722,6 +694,22 @@
     hasPlayedStandMixerHover = false;
   }
 
+  function playInteractiveHoverSound(asset: InteractiveSceneAsset) {
+    if (asset.hoverSound === 'toolbox') {
+      playToolShedHoverSound();
+      return;
+    }
+    if (asset.hoverSound === 'mixer') playStandMixerHoverSound();
+  }
+
+  function resetInteractiveHoverSound(asset: InteractiveSceneAsset) {
+    if (asset.hoverSound === 'toolbox') {
+      resetToolShedHoverSound();
+      return;
+    }
+    if (asset.hoverSound === 'mixer') resetStandMixerHoverSound();
+  }
+
   function getTestimonialAudioEl(testimonial: KitchenTestimonial) {
     if (testimonial.id === 'carlo') return carloAudioEl;
     if (testimonial.id === 'paganini') return paganiniAudioEl;
@@ -999,90 +987,71 @@
   onpointerup={endDrag}
   onpointercancel={endDrag}
 >
-  <div
-    class="parallax-layer reveal-layer background-layer"
-    style={`${getLayerStyle(resolvedLayerSpeed.background)}; --reveal-delay: 40ms;`}
-  >
-    <img src={kitchenAsset('layer-bg.svg')} alt="" draggable="false" />
-  </div>
+  <div class="floor-layer reveal-layer" style={getFloorStyle()}></div>
 
-  <div
-    class="parallax-layer reveal-layer background-layer tail-layer"
-    style={`${getTailLayerStyle(resolvedLayerSpeed.background)}; --reveal-delay: 40ms;`}
-  >
-    <img src={kitchenAsset('layer-bg-tail.svg')} alt="" draggable="false" />
-  </div>
-
-  <div
-    class="floor-layer reveal-layer"
-    style={`height: ${scenePx(floorHeight * sceneScale)}; bottom: ${scenePx(floorBottomOffset * sceneScale)}; background-size: ${scenePx(floorTileWidth * sceneScale)} ${scenePx(floorHeight * sceneScale)}; background-position-x: ${scenePx(-cameraX)}; --reveal-delay: 160ms; --reveal-duration: 320ms;`}
-  ></div>
-
-  <div
-    class="parallax-layer reveal-layer middle-layer"
-    style={`${getLayerStyle(resolvedLayerSpeed.middle, floorDepthZones.middle)}; --reveal-delay: 280ms;`}
-  >
-    <img src={kitchenAsset('layer-mid.svg')} alt="" draggable="false" />
-  </div>
-
-  <div
-    class="parallax-layer reveal-layer middle-layer tail-layer"
-    style={`${getTailLayerStyle(resolvedLayerSpeed.middle, floorDepthZones.tailMiddleTop)}; --reveal-delay: 280ms;`}
-  >
-    <img src={kitchenAsset('layer-mid-tail.svg')} alt="" draggable="false" />
-  </div>
+  {#each kitchenAssets as asset (asset.id)}
+    {#if asset.kind === 'interactive'}
+      <button
+        class={getAssetClass(asset)}
+        data-node-id={asset.nodeId}
+        style={getInteractiveAssetStyle(asset)}
+        type="button"
+        tabindex={asset.ariaLabel ? 0 : -1}
+        aria-label={asset.ariaLabel}
+        aria-hidden={asset.ariaLabel ? undefined : 'true'}
+        onpointerenter={() => playInteractiveHoverSound(asset)}
+        onpointerleave={() => resetInteractiveHoverSound(asset)}
+        onpointerdown={(event) => event.stopPropagation()}
+      >
+        <img src={kitchenAsset(asset.src)} alt="" width="100%" height="100%" draggable="false" />
+        {#if asset.shineEffect}
+          <span
+            class="object-shine"
+            style={`--shine-mask: url('${kitchenAsset(asset.src)}')`}
+            aria-hidden="true"
+          ></span>
+        {/if}
+        {#if asset.hoverDialogue}
+          <span
+            class={getInteractivePartClass(asset, 'dialogue')}
+            aria-hidden="true"
+            data-node-id={asset.hoverDialogueNodeId}
+          >
+            <span class={getInteractivePartClass(asset, 'arrow')} aria-hidden="true"></span>
+            <span class={getInteractivePartClass(asset, 'panel')}>
+              <span class={getInteractivePartClass(asset, 'copy')}>{asset.hoverDialogue}</span>
+            </span>
+          </span>
+        {/if}
+      </button>
+    {:else if asset.kind === 'gated'}
+      {#if narrativeProgress >= asset.visibleFrom && (!asset.visibleUntil || narrativeProgress <= asset.visibleUntil)}
+        <img
+          class={getAssetClass(asset)}
+          src={kitchenAsset(asset.src)}
+          alt=""
+          draggable="false"
+          data-node-id={asset.nodeId}
+          style={getAssetStyle(asset)}
+        />
+      {/if}
+    {:else}
+      <img
+        class={getAssetClass(asset)}
+        src={kitchenAsset(asset.src)}
+        alt=""
+        draggable="false"
+        data-node-id={asset.nodeId}
+        style={getAssetStyle(asset)}
+      />
+    {/if}
+  {/each}
 
   <h1 class="scene-title" style={getTitleStyle()} aria-label="Cucina">
     {#each titleLetters as letter, index}
       <span style={`--letter-delay: ${280 + index * 70}ms`} aria-hidden="true">{letter}</span>
     {/each}
   </h1>
-
-  <div
-    class="parallax-layer reveal-layer tool-shed-layer"
-    style={`${getToolShedStyle()}; --reveal-delay: 470ms;`}
-    role="button"
-    tabindex="0"
-    aria-label="Messaggio casetta degli attrezzi"
-    onpointerenter={playToolShedHoverSound}
-    onpointerleave={resetToolShedHoverSound}
-    onpointerdown={(event) => event.stopPropagation()}
-  >
-    <img src={kitchenAsset('casetta_attrezzi_figma.svg')} alt="" draggable="false" />
-    <span
-      class="object-shine"
-      style={`--shine-mask: url('${kitchenAsset('casetta_attrezzi_figma.svg')}')`}
-      aria-hidden="true"
-    ></span>
-    <span class="tool-shed-hover-dialogue" aria-hidden="true" data-node-id="3928:1640">
-      <span class="tool-shed-hover-arrow" aria-hidden="true"></span>
-      <span class="tool-shed-hover-panel">
-        <span class="tool-shed-hover-copy">{toolShedMessage}</span>
-      </span>
-    </span>
-  </div>
-
-  <div
-    class="parallax-layer reveal-layer stand-mixer-layer"
-    style={`${getStandMixerStyle()}; --reveal-delay: 470ms;`}
-    aria-hidden="true"
-    data-node-id="3622:4038"
-    onpointerenter={playStandMixerHoverSound}
-    onpointerleave={resetStandMixerHoverSound}
-  >
-    <img src={kitchenAsset('planetaria_figma.svg')} alt="" draggable="false" />
-    <span
-      class="object-shine"
-      style={`--shine-mask: url('${kitchenAsset('planetaria_figma.svg')}')`}
-      aria-hidden="true"
-    ></span>
-    <span class="stand-mixer-hover-dialogue" aria-hidden="true" data-node-id="3950:1617">
-      <span class="stand-mixer-hover-arrow" aria-hidden="true"></span>
-      <span class="stand-mixer-hover-panel">
-        <span class="stand-mixer-hover-copy">{toolShedMessage}</span>
-      </span>
-    </span>
-  </div>
 
   {#each kitchenTestimonials as testimonial (testimonial.id)}
     {@const isDialogueVisible = isTestimonialDialogueVisible(testimonial)}
@@ -1105,20 +1074,6 @@
       <img src={testimonial.imageSrc} alt={testimonial.imageAlt} draggable="false" />
     </button>
   {/each}
-
-  <div
-    class="parallax-layer reveal-layer foreground-layer"
-    style={`${getForegroundLayerStyle(floorDepthZones.foreground)}; --reveal-delay: 470ms;`}
-  >
-    <img src={kitchenAsset('layer-fg.svg')} alt="" draggable="false" />
-  </div>
-
-  <div
-    class="parallax-layer reveal-layer foreground-layer tail-layer"
-    style={`${getTailLayerStyle(resolvedLayerSpeed.foreground, floorDepthZones.tailForegroundTop)}; --reveal-delay: 470ms;`}
-  >
-    <img src={kitchenAsset('layer-fg-tail.svg')} alt="" draggable="false" />
-  </div>
 </section>
 
 <audio bind:this={toolShedAudioEl} src="/sound/toolbox.mp3" preload="auto"></audio>
@@ -1217,6 +1172,14 @@
 
   .parallax-layer {
     pointer-events: none;
+    z-index: calc(var(--scene-layer-z, 0) + var(--scene-z-offset, 0));
+    transform-origin: center center;
+  }
+
+  .scene-asset {
+    display: block;
+    object-fit: fill;
+    user-select: none;
   }
 
   .reveal-layer {
@@ -1232,8 +1195,13 @@
   .parallax-layer img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: fill;
     user-select: none;
+  }
+
+  .tail-layer {
+    object-fit: fill;
   }
 
   .tail-layer img {
@@ -1242,7 +1210,8 @@
   }
 
   .background-layer {
-    z-index: 1;
+    --reveal-delay: 40ms;
+    --scene-layer-z: 1;
   }
 
   .floor-layer {
@@ -1256,7 +1225,8 @@
   }
 
   .middle-layer {
-    z-index: 3;
+    --reveal-delay: 280ms;
+    --scene-layer-z: 3;
   }
 
   .scene-title {
@@ -1437,17 +1407,25 @@
   }
 
   .foreground-layer {
-    z-index: 6;
+    --reveal-delay: 470ms;
+    --scene-layer-z: 6;
+  }
+
+  .interactive-asset {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: visible;
+    pointer-events: auto;
   }
 
   .tool-shed-layer {
-    z-index: 8;
     overflow: visible;
     pointer-events: auto;
   }
 
   .stand-mixer-layer {
-    z-index: 7;
     pointer-events: auto;
   }
 

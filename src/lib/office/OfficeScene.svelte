@@ -1,111 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { officeAssets, officeSceneConfig } from './office-scene.config';
   import { clamp, px } from '$lib/scene/math';
+  import type { SceneAsset } from '$lib/scene/scene-asset.types';
+  import { getSceneAssetStyle } from '$lib/scene/scene-utils';
   import { createViewportObserver } from '$lib/scene/viewport';
 
   let { isAudioMuted = false } = $props<{ isAudioMuted?: boolean }>();
 
-  type OfficeAsset = {
-    src: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    flipX?: boolean;
-    flipY?: boolean;
-    fit?: 'contain' | 'fill';
-  };
-
-  const sceneWidth = 31800;
-  const sceneHeight = 982;
-  const assetVersion = '20260617-office-figma-2';
+  const { assetVersion, layerSpeed, sceneHeight, sceneWidth } = officeSceneConfig;
   const asset = (name: string) => `/assets/office-figma/${name}?v=${assetVersion}`;
-
-  const layerSpeed = {
-    background: 0.42,
-    middle: 0.74,
-    title: 0.82,
-    floor: 0.96,
-    foreground: 1.08
-  };
-
-  const backgroundAssets: OfficeAsset[] = [
-    { src: 'bg-plant.svg', x: 1489, y: 455, width: 99, height: 409 },
-    { src: 'bg-shelf.svg', x: 1892, y: 310, width: 213, height: 166 },
-    { src: 'bg-frame-1.svg', x: 2479, y: 223, width: 109, height: 174 },
-    { src: 'bg-frame-2.svg', x: 2685, y: 325, width: 109, height: 174 },
-    { src: 'bg-board-small.svg', x: 3137, y: 351, width: 231, height: 166 },
-    { src: 'bg-mirror.svg', x: 3838, y: 250, width: 126, height: 126 },
-    { src: 'bg-long-cabinet-1.svg', x: 4325, y: 575, width: 972, height: 291 },
-    { src: 'bg-frame-3.svg', x: 4999, y: 251, width: 129, height: 186 },
-    { src: 'bg-shelf-2.svg', x: 5411, y: 317, width: 254, height: 129 },
-    { src: 'bg-closed-cabinet.svg', x: 6359, y: 670, width: 234, height: 195 },
-    { src: 'bg-car-window-frame.svg', x: 6593, y: 218, width: 520, height: 391 },
-    { src: 'bg-car-window-car.svg', x: 6625, y: 371, width: 475, height: 185 },
-    { src: 'bg-shelf-plant.svg', x: 7621, y: 363, width: 411, height: 100 },
-    { src: 'bg-door.svg', x: 8214, y: 211, width: 300, height: 656 },
-    { src: 'bg-magazine-rack.svg', x: 9001, y: 748, width: 136, height: 123 },
-    { src: 'bg-bookcase.svg', x: 9322, y: 208, width: 219, height: 658 },
-    { src: 'bg-boxes.svg', x: 9725, y: 673, width: 129, height: 193 },
-    { src: 'bg-boxes.svg', x: 10312, y: 673, width: 129, height: 193 },
-    { src: 'bg-long-cabinet-2.svg', x: 12255, y: 650, width: 691, height: 207 },
-    { src: 'bg-desk-monitor.svg', x: 13502, y: 575, width: 609, height: 414 },
-    { src: 'bg-chair-front.svg', x: 13564, y: 666, width: 187, height: 365 },
-    { src: 'bg-long-cabinet-3.svg', x: 18270, y: 651, width: 691, height: 207 }
-  ];
-
-  const middleAssets: OfficeAsset[] = [
-    { src: 'mid-printer-cabinet.svg', x: 1819, y: 537, width: 546, height: 346 },
-    { src: 'mid-printer-detail.svg', x: 1899, y: 791, width: 85, height: 80 },
-    { src: 'mid-bin.svg', x: 3401, y: 780, width: 87, height: 102 },
-    { src: 'mid-desk.svg', x: 3535, y: 464, width: 814, height: 418 },
-    { src: 'mid-open-cabinet.svg', x: 5907, y: 213, width: 259, height: 682 },
-    { src: 'mid-water.svg', x: 7360, y: 310, width: 127, height: 574 },
-    { src: 'mid-coffee.svg', x: 8805, y: 447, width: 261, height: 454 },
-    { src: 'mid-chair-front.svg', x: 9320, y: 563, width: 164, height: 321 },
-    { src: 'mid-chair-front.svg', x: 9717, y: 563, width: 164, height: 321 },
-    { src: 'mid-cabinet-doors.svg', x: 10701, y: 594, width: 344, height: 290 },
-    { src: 'mid-table-2.svg', x: 11498, y: 578, width: 501, height: 214 },
-    { src: 'mid-chair-profile-2.svg', x: 11999, y: 543, width: 198, height: 341, flipY: true },
-    { src: 'mid-table.svg', x: 12915, y: 484, width: 323, height: 264 },
-    { src: 'mid-chair-profile.svg', x: 13283, y: 538, width: 202, height: 346, flipY: true },
-    { src: 'mid-desk-low.svg', x: 14413, y: 578, width: 732, height: 306 },
-    { src: 'mid-desk-low-left.svg', x: 14483, y: 657, width: 125, height: 226 },
-    { src: 'mid-desk-low-right.svg', x: 14948, y: 658, width: 125, height: 226 }
-  ];
-
-  const foregroundAssets: OfficeAsset[] = [
-    { src: 'front-drawer.svg', x: 2591, y: 703, width: 210, height: 280 },
-    { src: 'front-drawer.svg', x: 2814, y: 703, width: 210, height: 280 },
-    { src: 'front-folder-1.svg', x: 2640, y: 592, width: 26, height: 110 },
-    { src: 'front-folder-2.svg', x: 2667, y: 592, width: 26, height: 110 },
-    { src: 'front-folder-3.svg', x: 2901, y: 592, width: 26, height: 110 },
-    { src: 'front-folder-4.svg', x: 2928, y: 592, width: 26, height: 110 },
-    { src: 'front-chair-profile.svg', x: 4869, y: 568, width: 241, height: 415 },
-    { src: 'front-long-table.svg', x: 5117, y: 600, width: 1095, height: 380 },
-    { src: 'front-chair-profile-flip.svg', x: 6186, y: 568, width: 241, height: 415, flipY: true },
-    { src: 'front-magazine-rack.svg', x: 6490, y: 805, width: 184, height: 166 },
-    { src: 'front-low-table.svg', x: 7921, y: 743, width: 570, height: 242 },
-    { src: 'front-curved-chair.svg', x: 7619, y: 616, width: 229, height: 366 },
-    { src: 'front-curved-chair-flip.svg', x: 8564, y: 616, width: 230, height: 366, flipY: true },
-    { src: 'front-lamp.svg', x: 8098, y: 600, width: 79, height: 183, flipY: true },
-    { src: 'front-lamp.svg', x: 8206, y: 600, width: 79, height: 183, flipY: true },
-    { src: 'front-cabinet-doors.svg', x: 9997, y: 632, width: 415, height: 350 },
-    { src: 'front-curved-chair-2.svg', x: 11772, y: 603, width: 236, height: 378 },
-    { src: 'front-table-long.svg', x: 11937, y: 687, width: 1024, height: 293 },
-    { src: 'front-curved-chair-flip.svg', x: 13101, y: 616, width: 230, height: 366, flipX: true },
-    { src: 'fg-map-base.svg', x: 16158, y: 390, width: 509, height: 334 },
-    { src: 'fg-map-lines.svg', x: 16224, y: 455, width: 358, height: 264 },
-    { src: 'fg-desk-monitor.svg', x: 17208, y: 512, width: 694, height: 472 },
-    { src: 'fg-desk-monitor-chair.svg', x: 17279, y: 616, width: 213, height: 416 },
-    { src: 'front-cabinet.svg', x: 19056, y: 684, width: 593, height: 300 },
-    { src: 'front-cabinet-detail.svg', x: 19175, y: 830, width: 90, height: 82 },
-    { src: 'fg-desk-low.svg', x: 20726, y: 726, width: 378, height: 158 },
-    { src: 'fg-desk-low-cabinet.svg', x: 21002, y: 767, width: 65, height: 117 },
-    { src: 'fg-phone.svg', x: 20751, y: 659, width: 93, height: 77 },
-    { src: 'fg-chair.svg', x: 20862, y: 700, width: 106, height: 207 },
-    { src: 'fg-printer.svg', x: 30394, y: 515, width: 377, height: 368 }
-  ];
+  const officeFloor = { x: -226, y: 859, width: 37330, height: 123 };
 
   let stageEl: HTMLElement;
   let viewportWidth = $state(0);
@@ -125,14 +30,22 @@
     middle: prefersReducedMotion ? 1 : layerSpeed.middle,
     title: prefersReducedMotion ? 1 : layerSpeed.title,
     floor: prefersReducedMotion ? 1 : layerSpeed.floor,
-    foreground: 1
+    foreground: prefersReducedMotion ? 1 : layerSpeed.foreground
   });
-  const sceneScale = $derived(viewportHeight ? viewportHeight / sceneHeight : 1);
+  const sceneVerticalInset = $derived(Math.max(18, Math.min(42, viewportHeight * 0.035)));
+  const sceneScale = $derived(
+    viewportHeight ? Math.max(1, viewportHeight - sceneVerticalInset * 2) / sceneHeight : 1
+  );
   const worldWidth = $derived(Math.max(viewportWidth, sceneWidth * sceneScale));
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
   const progress = $derived(maxScrollX > 0 ? clamp(cameraX / maxScrollX, 0, 1) : 0);
   const scenePx = (value: number) => px(value, 2);
-  const worldStyle = $derived(`width: ${scenePx(worldWidth)}; height: ${scenePx(viewportHeight)}`);
+  const scrollSpaceStyle = $derived(
+    `width: ${scenePx(worldWidth)}; height: ${scenePx(viewportHeight)}`
+  );
+  const worldStyle = $derived(
+    `width: ${scenePx(viewportWidth)}; height: ${scenePx(viewportHeight)}`
+  );
 
   function setTargetCameraX(value: number) {
     targetCameraX = clamp(value, 0, maxScrollX);
@@ -222,16 +135,31 @@
     }
   }
 
-  function getAssetStyle(item: OfficeAsset, speed: number) {
-    const parallaxEnd = maxScrollX * (1 - speed);
+  function getAssetClass(item: SceneAsset) {
+    return [
+      'office-asset',
+      'reveal-layer',
+      `${item.layer}-layer`,
+      `layer-${item.layer}`,
+      item.isTail ? 'tail-layer' : ''
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function getAssetStyle(item: SceneAsset) {
+    return getSceneAssetStyle(item, cameraX, sceneHeight, sceneScale, resolvedLayerSpeed);
+  }
+
+  function getOfficeFloorStyle() {
+    const translateX = officeFloor.x * sceneScale - cameraX * resolvedLayerSpeed.floor;
+    const bottom = (sceneHeight - officeFloor.y - officeFloor.height) * sceneScale + sceneVerticalInset;
 
     return [
-      `--asset-x: ${scenePx(item.x * sceneScale)}`,
-      `--asset-y: ${scenePx(item.y * sceneScale)}`,
-      `--parallax-end: ${scenePx(parallaxEnd)}`,
-      `width: ${scenePx(item.width * sceneScale)}`,
-      `height: ${scenePx(item.height * sceneScale)}`,
-      `scale: ${item.flipX ? -1 : 1} ${item.flipY ? -1 : 1}`
+      `width: ${scenePx(officeFloor.width * sceneScale)}`,
+      `height: ${scenePx(officeFloor.height * sceneScale)}`,
+      `bottom: ${scenePx(bottom)}`,
+      `transform: translate3d(${scenePx(translateX)}, 0, 0)`
     ].join(';');
   }
 
@@ -241,13 +169,11 @@
       Math.max(56, (viewportWidth - 48) / 4.55)
     );
     const titleX = viewportWidth < 640 ? 24 : 93 * sceneScale;
+    const translateX = titleX - cameraX * resolvedLayerSpeed.title;
 
     return [
-      `--asset-x: ${scenePx(titleX)}`,
-      `--asset-y: ${scenePx(285 * sceneScale)}`,
-      `--parallax-end: ${scenePx(maxScrollX * (1 - resolvedLayerSpeed.title))}`,
-      `font-size: ${scenePx(titleFontSize)}`,
-      `scale: 1 1`
+      `translate: ${scenePx(translateX)} ${scenePx(sceneVerticalInset + 285 * sceneScale)}`,
+      `font-size: ${scenePx(titleFontSize)}`
     ].join(';');
   }
 
@@ -289,49 +215,29 @@
   onpointerup={endDrag}
   onpointercancel={endDrag}
 >
-  <div class="office-world" style={worldStyle}>
-    <img
-      class="office-asset reveal-layer floor-layer"
-      src={asset('floor.svg')}
-      alt=""
-      draggable="false"
-      style={getAssetStyle(
-        { src: 'floor.svg', x: -226, y: 859, width: 37330, height: 123 },
-        resolvedLayerSpeed.floor
-      )}
-    />
-
-    {#each backgroundAssets as item (item.src + item.x)}
+  <div class="office-scroll-space" style={scrollSpaceStyle}>
+    <div class="office-world" style={worldStyle}>
       <img
-        class="office-asset reveal-layer background-layer"
-        src={asset(item.src)}
+        class="office-asset reveal-layer floor-layer"
+        src={asset('floor.svg')}
         alt=""
         draggable="false"
-        style={`${getAssetStyle(item, resolvedLayerSpeed.background)}; --reveal-delay: 120ms; object-fit: ${item.fit ?? 'fill'};`}
+        style={getOfficeFloorStyle()}
       />
-    {/each}
 
-    {#each middleAssets as item (item.src + item.x + item.y)}
-      <img
-        class="office-asset reveal-layer middle-layer"
-        src={asset(item.src)}
-        alt=""
-        draggable="false"
-        style={`${getAssetStyle(item, resolvedLayerSpeed.middle)}; --reveal-delay: 190ms; object-fit: ${item.fit ?? 'fill'};`}
-      />
-    {/each}
+      {#each officeAssets as item (item.id)}
+        <img
+          class={getAssetClass(item)}
+          src={asset(item.src)}
+          alt=""
+          draggable="false"
+          data-node-id={item.nodeId}
+          style={getAssetStyle(item)}
+        />
+      {/each}
 
-    <h1 class="office-title" style={getTitleStyle()} aria-label="Ufficio">Ufficio</h1>
-
-    {#each foregroundAssets as item (item.src + item.x + item.y)}
-    <img
-      class="office-asset reveal-layer foreground-layer"
-      src={asset(item.src)}
-      alt=""
-      draggable="false"
-      style={`${getAssetStyle(item, resolvedLayerSpeed.foreground)}; --reveal-delay: 260ms; object-fit: ${item.fit ?? 'fill'};`}
-    />
-    {/each}
+      <h1 class="office-title" style={getTitleStyle()} aria-label="Ufficio">Ufficio</h1>
+    </div>
   </div>
 </section>
 
@@ -345,8 +251,6 @@
     background: var(--color-surface-page);
     cursor: grab;
     scrollbar-width: none;
-    scroll-timeline-axis: inline;
-    scroll-timeline-name: --office-scroll;
     user-select: none;
     overscroll-behavior: contain;
     touch-action: pan-x;
@@ -356,8 +260,16 @@
     display: none;
   }
 
-  .office-world {
+  .office-scroll-space {
     position: relative;
+    min-width: 100%;
+    min-height: 100svh;
+  }
+
+  .office-world {
+    position: sticky;
+    left: 0;
+    top: 0;
     min-width: 100%;
     min-height: 100svh;
     overflow: hidden;
@@ -367,21 +279,23 @@
     cursor: grabbing;
   }
 
-  .office-asset,
+  .office-asset {
+    position: absolute;
+    left: 0;
+    display: block;
+    object-fit: fill;
+    pointer-events: none;
+    transform-origin: center center;
+    user-select: none;
+    will-change: transform;
+    z-index: calc(var(--scene-layer-z, 0) + var(--scene-z-offset, 0));
+  }
+
   .office-title {
     position: absolute;
     left: 0;
     top: 0;
-    animation: officeParallax linear both;
-    animation-timeline: --office-scroll;
-    translate: var(--asset-x, 0) var(--asset-y, 0);
-    will-change: translate;
-  }
-
-  .office-asset {
-    display: block;
-    pointer-events: none;
-    user-select: none;
+    will-change: translate, transform;
   }
 
   .reveal-layer,
@@ -408,11 +322,13 @@
   }
 
   .background-layer {
-    z-index: 2;
+    --reveal-delay: 120ms;
+    --scene-layer-z: 2;
   }
 
   .middle-layer {
-    z-index: 3;
+    --reveal-delay: 190ms;
+    --scene-layer-z: 3;
   }
 
   .office-title {
@@ -424,17 +340,13 @@
     line-height: 1.2;
     pointer-events: none;
     transform: translateY(-50%);
+    transform-origin: center center;
     white-space: nowrap;
   }
 
-  @keyframes officeParallax {
-    to {
-      translate: calc(var(--asset-x, 0px) + var(--parallax-end, 0px)) var(--asset-y, 0px);
-    }
-  }
-
   .foreground-layer {
-    z-index: 5;
+    --reveal-delay: 260ms;
+    --scene-layer-z: 5;
   }
 
   @keyframes officeLayerIn {
