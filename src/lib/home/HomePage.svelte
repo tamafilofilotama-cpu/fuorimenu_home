@@ -1945,7 +1945,7 @@
     --button-lift-y: calc(var(--button-depth-y) * -1);
     --button-hover-scale: 1;
 
-    color: var(--color-text-primary);
+    color: var(--color-surface-page);
     border-color: var(--color-text-primary);
     background: var(--color-text-inverse);
     opacity: 1;
@@ -2069,7 +2069,7 @@
     --button-hover-scale: 1;
     border-color: var(--color-text-primary);
     background: var(--color-text-inverse);
-    color: var(--color-text-primary);
+    color: #f7f3ea;
     box-shadow: none;
   }
 
@@ -3038,7 +3038,7 @@
   }
 
   .role-hover-panel-shape path {
-    fill: var(--color-surface-page);
+    fill: var(--color-border-primary);
     stroke: var(--color-border-primary);
     stroke-width: 2;
     vector-effect: non-scaling-stroke;
@@ -3061,6 +3061,7 @@
     line-height: 1.5;
     letter-spacing: 0;
     text-align: center;
+    color: #f7f3ea;
   }
 
   .role-card-copy {

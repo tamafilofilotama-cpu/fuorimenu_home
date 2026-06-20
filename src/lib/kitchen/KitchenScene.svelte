@@ -219,6 +219,13 @@
   let toolShedAudioSource: MediaElementAudioSourceNode | undefined;
   let isDragging = $state(false);
   let isSceneLoaded = $state(false);
+  let hasPointerScenePosition = $state(false);
+  let pointerSceneY = $state(0);
+  let pointerSceneX = $state({
+    background: 0,
+    middle: 0,
+    foreground: 0
+  });
 
   const resolvedLayerSpeed = $derived({
     background: prefersReducedMotion ? 1 : layerSpeed.background,
@@ -233,6 +240,24 @@
 
   const scenePx = (value: number) => px(value, 2);
   const testimonialPinnedLeftInset = $derived(Math.max(16, Math.min(48, viewportWidth * 0.028)));
+  const coord = (value: number) => Math.round(value).toString();
+  const coordDecimal = (value: number) => value.toFixed(3);
+
+  function updatePointerScenePosition(event: PointerEvent) {
+    if (!stageEl || !sceneScale) return;
+
+    const rect = stageEl.getBoundingClientRect();
+    const localX = clamp(event.clientX - rect.left, 0, rect.width);
+    const localY = clamp(event.clientY - rect.top, 0, rect.height);
+
+    hasPointerScenePosition = true;
+    pointerSceneY = localY / sceneScale;
+    pointerSceneX = {
+      background: (localX + cameraX * resolvedLayerSpeed.background) / sceneScale,
+      middle: (localX + cameraX * resolvedLayerSpeed.middle) / sceneScale,
+      foreground: (localX + cameraX * resolvedLayerSpeed.foreground) / sceneScale
+    };
+  }
 
   function syncViewport() {
     if (!stageEl) return;
@@ -529,6 +554,7 @@
   }
 
   function onPointerDown(event: PointerEvent) {
+    updatePointerScenePosition(event);
     isDragging = true;
     void startAmbientAudio();
     unlockRelevantTestimonialAudio();
@@ -537,14 +563,20 @@
   }
 
   function onPointerMove(event: PointerEvent) {
+    updatePointerScenePosition(event);
     if (!isDragging) return;
     kitchenController?.dragTo(event.clientX);
     unlockRelevantTestimonialAudio();
   }
 
+  function onPointerLeave() {
+    if (!isDragging) hasPointerScenePosition = false;
+  }
+
   function endDrag(event: PointerEvent) {
     isDragging = false;
     kitchenController?.endDrag();
+    updatePointerScenePosition(event);
     if (stageEl.hasPointerCapture(event.pointerId)) {
       stageEl.releasePointerCapture(event.pointerId);
     }
@@ -984,9 +1016,40 @@
   onwheel={onWheel} 
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
+  onpointerleave={onPointerLeave}
   onpointerup={endDrag}
   onpointercancel={endDrag}
 >
+  <aside class="scene-coordinate-indicator" aria-label="Coordinate scena per posizionamento asset">
+    <div class="coordinate-indicator-title">coordinate scena</div>
+    <dl>
+      <div>
+        <dt>y</dt>
+        <dd>{hasPointerScenePosition ? coord(pointerSceneY) : '...'}</dd>
+      </div>
+      <div>
+        <dt>x bg</dt>
+        <dd>{hasPointerScenePosition ? coord(pointerSceneX.background) : '...'}</dd>
+      </div>
+      <div>
+        <dt>x mid</dt>
+        <dd>{hasPointerScenePosition ? coord(pointerSceneX.middle) : '...'}</dd>
+      </div>
+      <div>
+        <dt>x fg</dt>
+        <dd>{hasPointerScenePosition ? coord(pointerSceneX.foreground) : '...'}</dd>
+      </div>
+      <div>
+        <dt>camera</dt>
+        <dd>{coord(cameraX)}</dd>
+      </div>
+      <div>
+        <dt>scale</dt>
+        <dd>{coordDecimal(sceneScale)}</dd>
+      </div>
+    </dl>
+  </aside>
+
   <div class="floor-layer reveal-layer" style={getFloorStyle()}></div>
 
   {#each kitchenAssets as asset (asset.id)}
@@ -1159,6 +1222,63 @@
 
   .kitchen-stage.is-dragging {
     cursor: var(--kitchen-cursor);
+  }
+
+  .scene-coordinate-indicator {
+    position: fixed;
+    z-index: 130;
+    top: calc(var(--layout-page-gutter) + 82px);
+    right: var(--layout-page-gutter);
+    min-width: 154px;
+    padding: 10px 12px 11px;
+    border: 2px solid var(--color-border-primary);
+    border-radius: var(--radius-s);
+    background: rgb(248 243 233 / 0.9);
+    color: var(--color-text-primary);
+    box-shadow: 0 8px 18px rgb(var(--shadow-brand-rgb) / 0.12);
+    font-family: var(--font-text);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .coordinate-indicator-title {
+    margin-bottom: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .scene-coordinate-indicator dl {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+  }
+
+  .scene-coordinate-indicator div {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .scene-coordinate-indicator dt,
+  .scene-coordinate-indicator dd {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .scene-coordinate-indicator dt {
+    font-weight: 600;
+    opacity: 0.68;
+  }
+
+  .scene-coordinate-indicator dd {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    text-align: right;
   }
 
   .parallax-layer,
@@ -1429,6 +1549,10 @@
     pointer-events: auto;
   }
 
+  .coffee-machine-layer {
+    pointer-events: auto;
+  }
+
   .stand-mixer-layer img {
     position: relative;
     z-index: 1;
@@ -1440,12 +1564,37 @@
     will-change: transform;
   }
 
+  .coffee-machine-layer img {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: auto;
+    transform-origin: 52% 100%;
+    animation: coffeeMachineIdle 2.7s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    will-change: transform;
+  }
+
   .stand-mixer-layer:hover img,
   .stand-mixer-layer:focus-visible img {
     animation: standMixerHoverLanding 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  .coffee-machine-layer:hover img,
+  .coffee-machine-layer:focus-visible img {
+    animation: coffeeMachineHoverLanding 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
   .stand-mixer-hover-dialogue {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+  }
+
+  .coffee-machine-hover-dialogue {
     position: absolute;
     inset: 0;
     z-index: 3;
@@ -1474,6 +1623,26 @@
     will-change: clip-path;
   }
 
+  .coffee-machine-hover-panel {
+    position: absolute;
+    z-index: 2;
+    left: var(--coffee-machine-message-left);
+    top: var(--coffee-machine-message-top);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--coffee-machine-message-width);
+    padding: var(--coffee-machine-message-padding);
+    border: 2px solid #fcb531;
+    border-radius: var(--radius-s);
+    background: #f7f3ea;
+    color: var(--color-text-primary);
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+    will-change: clip-path;
+  }
+
   .stand-mixer-hover-arrow {
     position: absolute;
     z-index: 1;
@@ -1481,6 +1650,17 @@
     top: var(--stand-mixer-arrow-top);
     width: var(--stand-mixer-arrow-size);
     height: var(--stand-mixer-arrow-size);
+    background: #fcb531;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .coffee-machine-hover-arrow {
+    position: absolute;
+    z-index: 1;
+    left: var(--coffee-machine-arrow-left);
+    top: var(--coffee-machine-arrow-top);
+    width: var(--coffee-machine-arrow-size);
+    height: var(--coffee-machine-arrow-size);
     background: #fcb531;
     transform: translate(-50%, -50%) rotate(45deg);
   }
@@ -1499,8 +1679,27 @@
     word-break: break-word;
   }
 
+  .coffee-machine-hover-copy {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    font-family: "JetBrains Mono", var(--font-text);
+    font-size: var(--coffee-machine-message-font-size);
+    font-style: italic;
+    font-weight: 300;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
   .stand-mixer-layer:hover .stand-mixer-hover-dialogue,
   .stand-mixer-layer:focus-visible .stand-mixer-hover-dialogue {
+    opacity: 1;
+  }
+
+  .coffee-machine-layer:hover .coffee-machine-hover-dialogue,
+  .coffee-machine-layer:focus-visible .coffee-machine-hover-dialogue {
     opacity: 1;
   }
 
@@ -1509,8 +1708,14 @@
     animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
+  .coffee-machine-layer:hover .coffee-machine-hover-panel,
+  .coffee-machine-layer:focus-visible .coffee-machine-hover-panel {
+    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
   .tool-shed-layer:focus-visible,
-  .stand-mixer-layer:focus-visible {
+  .stand-mixer-layer:focus-visible,
+  .coffee-machine-layer:focus-visible {
     outline: none;
   }
 
@@ -1544,6 +1749,11 @@
     animation-duration: 2.4s;
   }
 
+  .coffee-machine-layer .object-shine {
+    animation-name: objectLightSweepOpacityCoffee;
+    animation-duration: 2.7s;
+  }
+
   .object-shine::before {
     position: absolute;
     top: -34%;
@@ -1569,6 +1779,13 @@
   .stand-mixer-layer .object-shine::before {
     animation-name: objectLightSweepBeamMixer;
     animation-duration: 2.4s;
+  }
+
+  .coffee-machine-layer .object-shine::before {
+    left: 38%;
+    width: 24%;
+    animation-name: objectLightSweepBeamCoffee;
+    animation-duration: 2.7s;
   }
 
   .tool-shed-layer:hover img,
@@ -1724,6 +1941,37 @@
     }
   }
 
+  @keyframes objectLightSweepOpacityCoffee {
+    0%,
+    54% {
+      opacity: 0;
+    }
+
+    64% {
+      opacity: 0.78;
+    }
+
+    82% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes objectLightSweepBeamCoffee {
+    0%,
+    54% {
+      transform: translate3d(-430%, -34%, 0) rotate(35deg);
+    }
+
+    82%,
+    100% {
+      transform: translate3d(430%, 34%, 0) rotate(35deg);
+    }
+  }
+
   @keyframes toolShedHeavyLanding {
     0% {
       transform: translate3d(0, 0, 0) scale(1);
@@ -1786,6 +2034,64 @@
     }
   }
 
+  @keyframes coffeeMachineIdle {
+    0%,
+    46%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    55% {
+      transform: translate3d(0, -2px, 0) rotate(-1.2deg);
+    }
+
+    68% {
+      transform: translate3d(0, 0, 0) rotate(0.7deg);
+    }
+
+    82% {
+      transform: translate3d(0, -0.6px, 0) rotate(-0.4deg);
+    }
+  }
+
+  @keyframes coffeeMachineHoverLanding {
+    0% {
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    }
+
+    12% {
+      transform: translate3d(0, 0, 0) rotate(2deg) scale(1.025, 0.975);
+    }
+
+    28% {
+      transform: translate3d(0, -10px, 0) rotate(-4.5deg) scale(0.99, 1.016);
+    }
+
+    44% {
+      transform: translate3d(1px, -17px, 0) rotate(-6.5deg) scale(0.994, 1.01);
+    }
+
+    58% {
+      transform: translate3d(0, -6px, 0) rotate(-2.5deg) scale(1);
+    }
+
+    68% {
+      transform: translate3d(0, 0, 0) rotate(1.4deg) scale(1.06, 0.93);
+    }
+
+    78% {
+      transform: translate3d(0, -3px, 0) rotate(-1.6deg) scale(0.99, 1.018);
+    }
+
+    88% {
+      transform: translate3d(0, 0, 0) rotate(0.6deg) scale(1.025, 0.972);
+    }
+
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    }
+  }
+
   @keyframes standMixerHoverLanding {
     0% {
       transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
@@ -1836,6 +2142,27 @@
   }
 
   @media (max-width: 760px) {
+    .scene-coordinate-indicator {
+      top: calc(var(--layout-page-gutter-mobile) + 74px);
+      right: var(--layout-page-gutter-mobile);
+      min-width: 132px;
+      padding: 8px 9px;
+    }
+
+    .coordinate-indicator-title {
+      font-size: 9px;
+    }
+
+    .scene-coordinate-indicator div {
+      grid-template-columns: 48px 1fr;
+      gap: 6px;
+    }
+
+    .scene-coordinate-indicator dt,
+    .scene-coordinate-indicator dd {
+      font-size: 11px;
+    }
+
     .speech-bubble {
       left: 0;
       bottom: calc(100% + 18px);
@@ -1891,6 +2218,9 @@
     .stand-mixer-layer img,
     .stand-mixer-layer:hover img,
     .stand-mixer-layer:focus-visible img,
+    .coffee-machine-layer img,
+    .coffee-machine-layer:hover img,
+    .coffee-machine-layer:focus-visible img,
     .scene-title span {
       opacity: 1;
       transform: none;
@@ -1908,7 +2238,10 @@
     .tool-shed-hover-arrow,
     .stand-mixer-hover-dialogue,
     .stand-mixer-hover-panel,
-    .stand-mixer-hover-arrow {
+    .stand-mixer-hover-arrow,
+    .coffee-machine-hover-dialogue,
+    .coffee-machine-hover-panel,
+    .coffee-machine-hover-arrow {
       transition: none;
       animation: none;
     }
@@ -1918,7 +2251,9 @@
     .tool-shed-layer:hover .tool-shed-hover-panel,
     .tool-shed-layer:focus-visible .tool-shed-hover-panel,
     .stand-mixer-layer:hover .stand-mixer-hover-panel,
-    .stand-mixer-layer:focus-visible .stand-mixer-hover-panel {
+    .stand-mixer-layer:focus-visible .stand-mixer-hover-panel,
+    .coffee-machine-layer:hover .coffee-machine-hover-panel,
+    .coffee-machine-layer:focus-visible .coffee-machine-hover-panel {
       -webkit-clip-path: inset(0 0 0 0);
       clip-path: inset(0 0 0 0);
     }
