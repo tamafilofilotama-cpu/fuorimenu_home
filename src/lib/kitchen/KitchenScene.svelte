@@ -55,10 +55,10 @@
     ariaLabel: string;
     audioStartTime?: number;
     audioSrc?: string;
-    bubbleTop?: string;
     dialogueVisibleThreshold?: number;
     enterProgress: number;
     exitProgress?: number;
+    imageAspectRatio: number;
     imageAlt: string;
     imageSrc: string;
     metaLabel: string;
@@ -79,9 +79,9 @@
       id: 'carlo',
       ariaLabel: 'Testimonianza Carlo Zarri',
       audioSrc: '/sound/carlo.mp3',
-      bubbleTop: 'clamp(58px, 7vh, 100px)',
       enterProgress: 0.02,
       exitProgress: 0.155,
+      imageAspectRatio: 565 / 185,
       imageAlt: '',
       imageSrc: '/assets/npc_CarloZarri_alt1.svg',
       metaLabel: 'Chief Executive Chef - Carlo Zarri',
@@ -89,39 +89,42 @@
       rolePrefix: 'Chief Executive Chef - ',
       revealSpeechWithAudio: true,
       speech: carloSpeech,
-      bottomOffset: 660
+      widthMax: 370,
+      widthMin: 315,
+      widthVw: 0.245,
+      bottomOffset: 820
     },
     {
       id: 'paganini',
       ariaLabel: 'Testimonianza Stefano Paganini',
       audioSrc: '/sound/stefano.mp3',
-      bubbleTop: 'clamp(72px, 9vh, 126px)',
       enterProgress: 0.168,
       exitProgress: 0.235,
+      imageAspectRatio: 519 / 283,
       imageAlt: '',
-      imageSrc: '/images/stefano-paganini-figma.png',
+      imageSrc: '/images/stefano-paganini-figma.svg',
       metaLabel: 'Chef - Stefano Paganini',
       name: 'Stefano Paganini',
       rolePrefix: 'Chef - ',
       revealSpeechWithAudio: true,
       speech:
         "Da noi arrivavano ogni tre giorni due barra tre bancali di roba fresca e devi fare in maniera che non ti mancasse mai niente perché c'era sempre la paura, porca miseria se nevica, non possono arrivare con la roba quindi dobbiamo avere le robe in più. Lo standard qualitativo era molto alto perché erano tutti prodotti freschi, che non è scontato eh.",
-      widthMax: 390,
-      widthMin: 330,
-      widthVw: 0.255,
-      bottomOffset: 180
+      widthMax: 360,
+      widthMin: 305,
+      widthVw: 0.235,
+      bottomOffset: 300
     },
     {
       id: 'fausto',
       ariaLabel: 'Testimonianza Fausto',
       audioStartTime: 17.8,
       audioSrc: '/sound/fausto.mp3',
-      bubbleTop: 'clamp(16px, 2.5vh, 38px)',
       dialogueVisibleThreshold: 0.16,
       enterProgress: 0.248,
       exitProgress: 0.55,
+      imageAspectRatio: 1394 / 574,
       imageAlt: '',
-      imageSrc: '/images/fausto.png',
+      imageSrc: '/images/fausto.svg',
       metaLabel: 'Chef - Fausto',
       name: 'Fausto',
       revealDurationSeconds: 12,
@@ -131,10 +134,10 @@
       secondSpeech: faustoSecondSpeech,
       speech:
         "Sei istituti alberghieri, tra cui l'Istituto di Busto Arsizio, l'Istituto Lagrange di Milano, l'Istituto di Bormio, l'Istituto di Cortina e l'Istituto di Brunico ci hanno aiutato per effettuare tutte le tipologie di servizi.",
-      widthMax: 390,
-      widthMin: 330,
-      widthVw: 0.255,
-      bottomOffset: 480
+      widthMax: 360,
+      widthMin: 305,
+      widthVw: 0.235,
+      bottomOffset: 600
     }
   ];
   const carloTestimonial = kitchenTestimonials[0];
@@ -239,7 +242,9 @@
   const maxScrollX = $derived(Math.max(0, worldWidth - viewportWidth));
 
   const scenePx = (value: number) => px(value, 2);
-  const testimonialPinnedLeftInset = $derived(Math.max(16, Math.min(48, viewportWidth * 0.028)));
+  const testimonialPinnedLeftInset = 80;
+  const testimonialDialogueTopInset = $derived((viewportWidth <= 760 ? 88 : 104) + 40);
+  const testimonialDialogueGap = 32;
   const coord = (value: number) => Math.round(value).toString();
   const coordDecimal = (value: number) => value.toFixed(3);
 
@@ -416,14 +421,60 @@
     return getTestimonialPresence(testimonial) > (testimonial.dialogueVisibleThreshold ?? 0.94);
   }
 
+  function getTestimonialBubbleWidth() {
+    if (viewportWidth <= 760) return Math.min(330, Math.max(260, viewportWidth - 96));
+    return 350;
+  }
+
+  function getTestimonialBubbleCopyHeight() {
+    if (viewportWidth <= 760) {
+      return 106;
+    }
+
+    return 132;
+  }
+
+  function getTestimonialBubbleMetaHeight() {
+    return viewportWidth <= 760 ? 41 : 34;
+  }
+
+  function getTestimonialBubbleHeight() {
+    return getTestimonialBubbleCopyHeight() + getTestimonialBubbleMetaHeight() - 2;
+  }
+
+  function getTestimonialBubbleOffsetX(testimonial: KitchenTestimonial, chefWidth: number) {
+    if (testimonial.id !== 'carlo') return 0;
+
+    const topbarGutter = viewportWidth <= 760 ? 24 : 80;
+    const bubbleWidth = getTestimonialBubbleWidth();
+    const centeredBubbleLeft = testimonialPinnedLeftInset + chefWidth / 2 - bubbleWidth / 2;
+    return topbarGutter - centeredBubbleLeft;
+  }
+
+  function getTestimonialVisualTopOffset(testimonial: KitchenTestimonial, chefHeight: number) {
+    if (testimonial.id !== 'fausto') return 0;
+
+    const translateY = clamp(viewportWidth * 0.08, 92, 145);
+    return Math.min(0, (translateY - chefHeight * 0.22) * 0.45);
+  }
+
   function getTestimonialStyle(testimonial: KitchenTestimonial) {
     const presence = getTestimonialPresence(testimonial);
     const entryY = (1 - presence) * Math.max(420, Math.min(560, viewportHeight * 0.58));
     const width = Math.max(
-      testimonial.widthMin ?? 340,
-      Math.min(testimonial.widthMax ?? 400, viewportWidth * (testimonial.widthVw ?? 0.265))
+      testimonial.widthMin ?? 315,
+      Math.min(testimonial.widthMax ?? 370, viewportWidth * (testimonial.widthVw ?? 0.245))
     );
-    const bottomOffset = testimonial.bottomOffset ?? 660;
+    const chefHeight = width * testimonial.imageAspectRatio;
+    const dialogueHeight = getTestimonialBubbleHeight();
+    const visualTopOffset = getTestimonialVisualTopOffset(testimonial, chefHeight);
+    const bubbleWidth = getTestimonialBubbleWidth();
+    const bubbleOffsetX = getTestimonialBubbleOffsetX(testimonial, width);
+    const bubbleArrowLeft = clamp(bubbleWidth / 2 - bubbleOffsetX, 18, bubbleWidth - 18);
+    const testimonialTop =
+      testimonialDialogueTopInset + dialogueHeight + testimonialDialogueGap - visualTopOffset;
+    const bottomOffset = testimonialTop + chefHeight - viewportHeight;
+    const dialogueTop = testimonialDialogueTopInset - testimonialTop;
 
     return [
       `left: ${scenePx(testimonialPinnedLeftInset)}`,
@@ -431,20 +482,102 @@
       `width: ${scenePx(width)}`,
       `--chef-entry-y: ${scenePx(entryY)}`,
       `--chef-entry-opacity: ${presence.toFixed(3)}`,
-      `--speech-bubble-top: ${testimonial.bubbleTop ?? 'clamp(128px, 16vh, 188px)'}`
+      `--speech-bubble-width: ${scenePx(bubbleWidth)}`,
+      `--speech-bubble-copy-height: ${scenePx(getTestimonialBubbleCopyHeight())}`,
+      `--speech-bubble-meta-height: ${scenePx(getTestimonialBubbleMetaHeight())}`,
+      `--speech-bubble-offset-x: ${scenePx(bubbleOffsetX)}`,
+      `--speech-bubble-arrow-left: ${scenePx(bubbleArrowLeft)}`,
+      `--speech-bubble-top: ${scenePx(dialogueTop)}`
     ].join(';');
   }
 
+  function getTestimonialSpeech(testimonial: KitchenTestimonial) {
+    return testimonial.id === 'fausto' && faustoSpeechPart === 2 && testimonial.secondSpeech
+      ? testimonial.secondSpeech
+      : testimonial.speech;
+  }
+
+  function getTestimonialSpeechPageCharacters() {
+    const isMobile = viewportWidth <= 760;
+    const bubbleWidth = getTestimonialBubbleWidth();
+    const fontSize = isMobile ? 13 : 15;
+    const horizontalPadding = isMobile ? 36 : 40;
+    const copyHeight = getTestimonialBubbleCopyHeight();
+    const lineHeight = fontSize * 1.34;
+    const lines = Math.max(3, Math.floor(copyHeight / lineHeight));
+    const charactersPerLine = Math.max(
+      18,
+      Math.floor((bubbleWidth - horizontalPadding) / (fontSize * 0.56))
+    );
+
+    return Math.max(90, Math.floor(charactersPerLine * lines * 0.82));
+  }
+
+  function paginateTestimonialSpeech(speech: string) {
+    const pageCharacters = getTestimonialSpeechPageCharacters();
+    const words = speech.trim().split(/\s+/).filter(Boolean);
+    const pages: string[] = [];
+    let page = '';
+
+    words.forEach((word) => {
+      if (!page) {
+        page = word;
+        return;
+      }
+
+      const candidate = `${page} ${word}`;
+      if (candidate.length <= pageCharacters) {
+        page = candidate;
+        return;
+      }
+
+      pages.push(page);
+      page = word;
+    });
+
+    if (page) pages.push(page);
+    return pages.length ? pages : [''];
+  }
+
+  function getCurrentSpeechPageInfo(testimonial: KitchenTestimonial) {
+    const pages = paginateTestimonialSpeech(getTestimonialSpeech(testimonial));
+    if (!testimonial.revealSpeechWithAudio) {
+      const speech = pages[0] ?? '';
+      return { highlightedSpeech: speech, speech };
+    }
+
+    const normalizedSpeech = pages.join(' ');
+    const spokenLength = Math.ceil(
+      normalizedSpeech.length * testimonialRevealProgress[testimonial.id]
+    );
+    let pageStart = 0;
+
+    for (const page of pages) {
+      const pageEnd = pageStart + page.length;
+      if (spokenLength <= pageEnd || page === pages[pages.length - 1]) {
+        return {
+          highlightedSpeech: page.slice(0, clamp(spokenLength - pageStart, 0, page.length)),
+          speech: page
+        };
+      }
+
+      pageStart = pageEnd + 1;
+    }
+
+    const speech = pages[0] ?? '';
+    return { highlightedSpeech: '', speech };
+  }
+
+  function getHighlightedSpeech(testimonial: KitchenTestimonial) {
+    return getCurrentSpeechPageInfo(testimonial).highlightedSpeech;
+  }
+
+  function isSpeechHighlightedWithAudio(testimonial: KitchenTestimonial) {
+    return Boolean(testimonial.revealSpeechWithAudio);
+  }
+
   function getVisibleSpeech(testimonial: KitchenTestimonial) {
-    const speech =
-      testimonial.id === 'fausto' && faustoSpeechPart === 2 && testimonial.secondSpeech
-        ? testimonial.secondSpeech
-        : testimonial.speech;
-    if (!testimonial.revealSpeechWithAudio) return speech;
-
-    const visibleLength = Math.ceil(speech.length * testimonialRevealProgress[testimonial.id]);
-
-    return speech.slice(0, visibleLength);
+    return getCurrentSpeechPageInfo(testimonial).speech;
   }
 
   function resetTestimonialSpeechReveal(testimonial: KitchenTestimonial) {
@@ -1128,7 +1261,16 @@
       onpointerdown={(event) => onTestimonialPointerDown(event, testimonial)}
     >
       <span class="speech-bubble" aria-hidden={!isDialogueVisible} data-node-id="3772:1119">
-        <span class="speech-bubble-copy">{getVisibleSpeech(testimonial)}</span>
+        <span class="speech-bubble-copy" aria-label={getVisibleSpeech(testimonial)}>
+          {#if isSpeechHighlightedWithAudio(testimonial)}
+            <span class="speech-bubble-text speech-bubble-text-audio" aria-hidden="true">
+              <span class="speech-bubble-text-base">{getVisibleSpeech(testimonial)}</span>
+              <span class="speech-bubble-text-progress">{getHighlightedSpeech(testimonial)}</span>
+            </span>
+          {:else}
+            <span class="speech-bubble-text">{getVisibleSpeech(testimonial)}</span>
+          {/if}
+        </span>
         <span class="speech-bubble-meta" aria-label={testimonial.metaLabel}>
           <span>{testimonial.rolePrefix}</span>
           <strong>{testimonial.name}</strong>
@@ -1398,35 +1540,39 @@
   .chef-button[data-testimonial='fausto'] img {
     width: auto;
     max-width: 100%;
-    max-height: clamp(760px, 62vw, 960px);
+    max-height: clamp(720px, 58vw, 900px);
     margin-inline: auto;
-    transform: translate3d(0, clamp(78px, 7.4vw, 128px), 0) scale(1.32);
+    object-fit: contain;
+    transform: translate3d(0, clamp(92px, 8vw, 145px), 0) scale(1.22);
     transform-origin: 50% 100%;
   }
 
   .speech-bubble {
     position: absolute;
     z-index: 7;
-    left: calc(100% + clamp(14px, 1.7vw, 24px));
-    top: var(--speech-bubble-top, clamp(128px, 16vh, 188px));
+    left: 50%;
+    top: var(--speech-bubble-top, calc(var(--layout-topbar-height) + 40px));
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    width: clamp(260px, 29vw, 370px);
-    min-height: clamp(112px, 11vw, 146px);
+    width: var(--speech-bubble-width, 350px);
+    height: calc(var(--speech-bubble-copy-height, 132px) + var(--speech-bubble-meta-height, 34px) - 2px);
     color: var(--color-text-primary);
     font-family: var(--font-text);
     text-align: left;
     opacity: 0;
-    transition: opacity 90ms ease;
+    transform: translate3d(calc(-50% + var(--speech-bubble-offset-x, 0px)), 18px, 0);
+    transition:
+      opacity 120ms ease,
+      transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
   }
 
   .speech-bubble::before {
     position: absolute;
     z-index: 0;
-    left: 0;
-    top: clamp(72px, 7vw, 92px);
+    left: var(--speech-bubble-arrow-left, 50%);
+    bottom: -9px;
     width: 18px;
     height: 18px;
     background: var(--color-border-primary);
@@ -1434,7 +1580,7 @@
     content: '';
     opacity: 0;
     scale: 0.72;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
     transform-origin: 50% 50%;
     transition:
       opacity 1ms linear 80ms,
@@ -1448,35 +1594,44 @@
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    min-height: clamp(94px, 10.7vw, 142px);
-    padding: clamp(15px, 1.72vw, 22px);
+    flex: 0 0 var(--speech-bubble-copy-height, 132px);
+    height: var(--speech-bubble-copy-height, 132px);
+    padding: 24px 20px;
     border: 2px solid var(--color-border-primary);
     border-radius: 10px 10px 0 0;
     background: var(--color-surface-page);
-    font-size: clamp(13px, 1.22vw, 16px);
+    font-size: 15px;
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.34;
     white-space: pre-line;
+    overflow: hidden;
     word-break: break-word;
-    -webkit-clip-path: inset(0 100% 0 0);
-    clip-path: inset(0 100% 0 0);
+    -webkit-clip-path: inset(100% 0 0 0);
+    clip-path: inset(100% 0 0 0);
     will-change: clip-path;
   }
 
-  .chef-button[data-testimonial='carlo'] .speech-bubble {
-    width: clamp(360px, 41vw, 570px);
-    min-height: clamp(190px, 19vw, 252px);
+  .speech-bubble-text {
+    position: relative;
+    display: block;
+    width: 100%;
   }
 
-  .chef-button[data-testimonial='carlo'] .speech-bubble::before {
-    top: clamp(82px, 8.2vw, 110px);
+  .speech-bubble-text-audio {
+    color: color-mix(in srgb, var(--color-text-primary) 38%, var(--color-surface-page));
   }
 
-  .chef-button[data-testimonial='carlo'] .speech-bubble-copy {
-    align-items: flex-start;
-    min-height: clamp(168px, 17vw, 224px);
-    font-size: clamp(12px, 1.04vw, 14px);
-    line-height: 1.26;
+  .speech-bubble-text-base {
+    display: block;
+  }
+
+  .speech-bubble-text-progress {
+    position: absolute;
+    inset: 0;
+    display: block;
+    color: var(--color-text-primary);
+    white-space: inherit;
+    pointer-events: none;
   }
 
   .speech-bubble-meta {
@@ -1484,32 +1639,36 @@
     z-index: 1;
     display: flex;
     align-items: center;
-    min-height: 36px;
+    flex: 0 0 var(--speech-bubble-meta-height, 34px);
+    height: var(--speech-bubble-meta-height, 34px);
     margin-top: -2px;
-    padding: 0 clamp(13px, 1.18vw, 15px);
+    padding: 0 clamp(13px, 1.2vw, 16px);
     border-radius: 0 0 var(--radius-s) var(--radius-s);
     background: var(--color-border-primary);
     color: var(--color-surface-page);
     font-family: var(--font-text);
-    font-size: clamp(10px, 0.98vw, 13px);
+    font-size: clamp(10px, 0.8vw, 12px);
     font-weight: 700;
     line-height: 1.5;
     white-space: nowrap;
-    -webkit-clip-path: inset(0 100% 0 0);
-    clip-path: inset(0 100% 0 0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-clip-path: inset(100% 0 0 0);
+    clip-path: inset(100% 0 0 0);
     will-change: clip-path;
   }
 
   .speech-bubble-meta strong {
     margin-left: 4px;
     font-family: "Fasthand", cursive;
-    font-size: clamp(16px, 1.48vw, 19px);
+    font-size: clamp(15px, 1.25vw, 19px);
     font-weight: 400;
     line-height: 1.5;
   }
 
   .chef-button.is-dialogue-visible .speech-bubble {
     opacity: 1;
+    transform: translate3d(calc(-50% + var(--speech-bubble-offset-x, 0px)), 0, 0);
     transition-delay: 0ms;
   }
 
@@ -1519,11 +1678,11 @@
   }
 
   .chef-button.is-dialogue-visible .speech-bubble-copy {
-    animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) 20ms both;
+    animation: dialogueRevealY 320ms cubic-bezier(0.16, 1, 0.3, 1) 20ms both;
   }
 
   .chef-button.is-dialogue-visible .speech-bubble-meta {
-    animation: dialogueRevealX 225ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+    animation: dialogueRevealY 240ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both;
   }
 
   .foreground-layer {
@@ -1549,7 +1708,10 @@
     pointer-events: auto;
   }
 
-  .coffee-machine-layer {
+  .coffee-machine-layer,
+  .orange-detail-machine-layer,
+  .alarm-clock-layer,
+  .stove-top-layer {
     pointer-events: auto;
   }
 
@@ -1564,14 +1726,17 @@
     will-change: transform;
   }
 
-  .coffee-machine-layer img {
+  .coffee-machine-layer img,
+  .orange-detail-machine-layer img,
+  .alarm-clock-layer img,
+  .stove-top-layer img {
     position: relative;
     z-index: 1;
     display: block;
     width: 100%;
     height: auto;
     transform-origin: 52% 100%;
-    animation: coffeeMachineIdle 2.7s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+    animation: coffeeMachineIdle 1.65s cubic-bezier(0.45, 0, 0.2, 1) infinite;
     will-change: transform;
   }
 
@@ -1581,8 +1746,14 @@
   }
 
   .coffee-machine-layer:hover img,
-  .coffee-machine-layer:focus-visible img {
-    animation: coffeeMachineHoverLanding 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  .coffee-machine-layer:focus-visible img,
+  .orange-detail-machine-layer:hover img,
+  .orange-detail-machine-layer:focus-visible img,
+  .alarm-clock-layer:hover img,
+  .alarm-clock-layer:focus-visible img,
+  .stove-top-layer:hover img,
+  .stove-top-layer:focus-visible img {
+    animation: coffeeMachineHoverLanding 860ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .stand-mixer-hover-dialogue {
@@ -1594,7 +1765,10 @@
     pointer-events: none;
   }
 
-  .coffee-machine-hover-dialogue {
+  .coffee-machine-hover-dialogue,
+  .orange-detail-machine-hover-dialogue,
+  .alarm-clock-hover-dialogue,
+  .stove-top-hover-dialogue {
     position: absolute;
     inset: 0;
     z-index: 3;
@@ -1643,6 +1817,66 @@
     will-change: clip-path;
   }
 
+  .orange-detail-machine-hover-panel {
+    position: absolute;
+    z-index: 2;
+    left: var(--orange-detail-machine-message-left);
+    top: var(--orange-detail-machine-message-top);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--orange-detail-machine-message-width);
+    padding: var(--orange-detail-machine-message-padding);
+    border: 2px solid #fcb531;
+    border-radius: var(--radius-s);
+    background: #f7f3ea;
+    color: var(--color-text-primary);
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+    will-change: clip-path;
+  }
+
+  .alarm-clock-hover-panel {
+    position: absolute;
+    z-index: 2;
+    left: var(--alarm-clock-message-left);
+    top: var(--alarm-clock-message-top);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--alarm-clock-message-width);
+    padding: var(--alarm-clock-message-padding);
+    border: 2px solid #fcb531;
+    border-radius: var(--radius-s);
+    background: #f7f3ea;
+    color: var(--color-text-primary);
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+    will-change: clip-path;
+  }
+
+  .stove-top-hover-panel {
+    position: absolute;
+    z-index: 2;
+    left: var(--stove-top-message-left);
+    top: var(--stove-top-message-top);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--stove-top-message-width);
+    padding: var(--stove-top-message-padding);
+    border: 2px solid #fcb531;
+    border-radius: var(--radius-s);
+    background: #f7f3ea;
+    color: var(--color-text-primary);
+    -webkit-clip-path: inset(0 0 0 0);
+    clip-path: inset(0 0 0 0);
+    will-change: clip-path;
+  }
+
   .stand-mixer-hover-arrow {
     position: absolute;
     z-index: 1;
@@ -1661,6 +1895,39 @@
     top: var(--coffee-machine-arrow-top);
     width: var(--coffee-machine-arrow-size);
     height: var(--coffee-machine-arrow-size);
+    background: #fcb531;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .orange-detail-machine-hover-arrow {
+    position: absolute;
+    z-index: 1;
+    left: var(--orange-detail-machine-arrow-left);
+    top: var(--orange-detail-machine-arrow-top);
+    width: var(--orange-detail-machine-arrow-size);
+    height: var(--orange-detail-machine-arrow-size);
+    background: #fcb531;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .alarm-clock-hover-arrow {
+    position: absolute;
+    z-index: 1;
+    left: var(--alarm-clock-arrow-left);
+    top: var(--alarm-clock-arrow-top);
+    width: var(--alarm-clock-arrow-size);
+    height: var(--alarm-clock-arrow-size);
+    background: #fcb531;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .stove-top-hover-arrow {
+    position: absolute;
+    z-index: 1;
+    left: var(--stove-top-arrow-left);
+    top: var(--stove-top-arrow-top);
+    width: var(--stove-top-arrow-size);
+    height: var(--stove-top-arrow-size);
     background: #fcb531;
     transform: translate(-50%, -50%) rotate(45deg);
   }
@@ -1693,13 +1960,61 @@
     word-break: break-word;
   }
 
+  .orange-detail-machine-hover-copy {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    font-family: "JetBrains Mono", var(--font-text);
+    font-size: var(--orange-detail-machine-message-font-size);
+    font-style: italic;
+    font-weight: 300;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .alarm-clock-hover-copy {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    font-family: "JetBrains Mono", var(--font-text);
+    font-size: var(--alarm-clock-message-font-size);
+    font-style: italic;
+    font-weight: 300;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
+  .stove-top-hover-copy {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    font-family: "JetBrains Mono", var(--font-text);
+    font-size: var(--stove-top-message-font-size);
+    font-style: italic;
+    font-weight: 300;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: left;
+    word-break: break-word;
+  }
+
   .stand-mixer-layer:hover .stand-mixer-hover-dialogue,
   .stand-mixer-layer:focus-visible .stand-mixer-hover-dialogue {
     opacity: 1;
   }
 
   .coffee-machine-layer:hover .coffee-machine-hover-dialogue,
-  .coffee-machine-layer:focus-visible .coffee-machine-hover-dialogue {
+  .coffee-machine-layer:focus-visible .coffee-machine-hover-dialogue,
+  .orange-detail-machine-layer:hover .orange-detail-machine-hover-dialogue,
+  .orange-detail-machine-layer:focus-visible .orange-detail-machine-hover-dialogue,
+  .alarm-clock-layer:hover .alarm-clock-hover-dialogue,
+  .alarm-clock-layer:focus-visible .alarm-clock-hover-dialogue,
+  .stove-top-layer:hover .stove-top-hover-dialogue,
+  .stove-top-layer:focus-visible .stove-top-hover-dialogue {
     opacity: 1;
   }
 
@@ -1709,13 +2024,22 @@
   }
 
   .coffee-machine-layer:hover .coffee-machine-hover-panel,
-  .coffee-machine-layer:focus-visible .coffee-machine-hover-panel {
+  .coffee-machine-layer:focus-visible .coffee-machine-hover-panel,
+  .orange-detail-machine-layer:hover .orange-detail-machine-hover-panel,
+  .orange-detail-machine-layer:focus-visible .orange-detail-machine-hover-panel,
+  .alarm-clock-layer:hover .alarm-clock-hover-panel,
+  .alarm-clock-layer:focus-visible .alarm-clock-hover-panel,
+  .stove-top-layer:hover .stove-top-hover-panel,
+  .stove-top-layer:focus-visible .stove-top-hover-panel {
     animation: dialogueRevealX 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .tool-shed-layer:focus-visible,
   .stand-mixer-layer:focus-visible,
-  .coffee-machine-layer:focus-visible {
+  .coffee-machine-layer:focus-visible,
+  .orange-detail-machine-layer:focus-visible,
+  .alarm-clock-layer:focus-visible,
+  .stove-top-layer:focus-visible {
     outline: none;
   }
 
@@ -1749,7 +2073,10 @@
     animation-duration: 2.4s;
   }
 
-  .coffee-machine-layer .object-shine {
+  .coffee-machine-layer .object-shine,
+  .orange-detail-machine-layer .object-shine,
+  .alarm-clock-layer .object-shine,
+  .stove-top-layer .object-shine {
     animation-name: objectLightSweepOpacityCoffee;
     animation-duration: 2.7s;
   }
@@ -1781,7 +2108,10 @@
     animation-duration: 2.4s;
   }
 
-  .coffee-machine-layer .object-shine::before {
+  .coffee-machine-layer .object-shine::before,
+  .orange-detail-machine-layer .object-shine::before,
+  .alarm-clock-layer .object-shine::before,
+  .stove-top-layer .object-shine::before {
     left: 38%;
     width: 24%;
     animation-name: objectLightSweepBeamCoffee;
@@ -1871,6 +2201,18 @@
     from {
       -webkit-clip-path: inset(0 100% 0 0);
       clip-path: inset(0 100% 0 0);
+    }
+
+    to {
+      -webkit-clip-path: inset(0 0 0 0);
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  @keyframes dialogueRevealY {
+    from {
+      -webkit-clip-path: inset(100% 0 0 0);
+      clip-path: inset(100% 0 0 0);
     }
 
     to {
@@ -2036,21 +2378,24 @@
 
   @keyframes coffeeMachineIdle {
     0%,
-    46%,
     100% {
-      transform: translate3d(0, 0, 0) rotate(0deg);
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
     }
 
-    55% {
-      transform: translate3d(0, -2px, 0) rotate(-1.2deg);
+    28% {
+      transform: translate3d(0, -13px, 0) rotate(-3.6deg) scale(1.018);
     }
 
-    68% {
-      transform: translate3d(0, 0, 0) rotate(0.7deg);
+    46% {
+      transform: translate3d(0, 2px, 0) rotate(1.5deg) scale(1.012, 0.985);
     }
 
-    82% {
-      transform: translate3d(0, -0.6px, 0) rotate(-0.4deg);
+    62% {
+      transform: translate3d(0, -6px, 0) rotate(-1.9deg) scale(1.008);
+    }
+
+    78% {
+      transform: translate3d(0, 0, 0) rotate(0.9deg) scale(1);
     }
   }
 
@@ -2060,31 +2405,31 @@
     }
 
     12% {
-      transform: translate3d(0, 0, 0) rotate(2deg) scale(1.025, 0.975);
+      transform: translate3d(0, 0, 0) rotate(5deg) scale(1.08, 0.88);
     }
 
     28% {
-      transform: translate3d(0, -10px, 0) rotate(-4.5deg) scale(0.99, 1.016);
+      transform: translate3d(0, -38px, 0) rotate(-12deg) scale(0.94, 1.12);
     }
 
     44% {
-      transform: translate3d(1px, -17px, 0) rotate(-6.5deg) scale(0.994, 1.01);
+      transform: translate3d(4px, -54px, 0) rotate(-16deg) scale(0.96, 1.08);
     }
 
     58% {
-      transform: translate3d(0, -6px, 0) rotate(-2.5deg) scale(1);
+      transform: translate3d(-2px, -18px, 0) rotate(-7deg) scale(1);
     }
 
     68% {
-      transform: translate3d(0, 0, 0) rotate(1.4deg) scale(1.06, 0.93);
+      transform: translate3d(0, 0, 0) rotate(4deg) scale(1.18, 0.78);
     }
 
     78% {
-      transform: translate3d(0, -3px, 0) rotate(-1.6deg) scale(0.99, 1.018);
+      transform: translate3d(0, -14px, 0) rotate(-5deg) scale(0.96, 1.1);
     }
 
     88% {
-      transform: translate3d(0, 0, 0) rotate(0.6deg) scale(1.025, 0.972);
+      transform: translate3d(0, 0, 0) rotate(2deg) scale(1.08, 0.88);
     }
 
     100% {
@@ -2164,39 +2509,35 @@
     }
 
     .speech-bubble {
-      left: 0;
-      bottom: calc(100% + 18px);
-      width: min(330px, calc(100vw - 64px));
-      min-height: 0;
-    }
-
-    .chef-button[data-testimonial='carlo'] .speech-bubble {
-      width: min(360px, calc(100vw - 48px));
-      min-height: 0;
+      left: 50%;
+      top: var(--speech-bubble-top, calc(var(--layout-topbar-height-mobile) + 40px));
+      width: var(--speech-bubble-width, min(330px, calc(100vw - 96px)));
+      transform: translate3d(calc(-50% + var(--speech-bubble-offset-x, 0px)), 18px, 0);
     }
 
     .speech-bubble::before {
-      left: 0;
-      top: 72px;
+      left: var(--speech-bubble-arrow-left, 50%);
+      top: auto;
+      bottom: -9px;
       width: 18px;
       height: 18px;
     }
 
+    .chef-button.is-dialogue-visible .speech-bubble {
+      transform: translate3d(calc(-50% + var(--speech-bubble-offset-x, 0px)), 0, 0);
+    }
+
     .speech-bubble-copy {
-      min-height: 106px;
-      padding: 14px 18px;
+      flex-basis: var(--speech-bubble-copy-height, 106px);
+      height: var(--speech-bubble-copy-height, 106px);
+      padding: 18px 18px;
       border-width: 2px;
       font-size: 13px;
     }
 
-    .chef-button[data-testimonial='carlo'] .speech-bubble-copy {
-      min-height: 178px;
-      font-size: 11.5px;
-      line-height: 1.22;
-    }
-
     .speech-bubble-meta {
-      min-height: 41px;
+      flex-basis: var(--speech-bubble-meta-height, 41px);
+      height: var(--speech-bubble-meta-height, 41px);
       margin-top: -2px;
       padding: 0 14px;
       font-size: 11px;
@@ -2221,6 +2562,15 @@
     .coffee-machine-layer img,
     .coffee-machine-layer:hover img,
     .coffee-machine-layer:focus-visible img,
+    .orange-detail-machine-layer img,
+    .orange-detail-machine-layer:hover img,
+    .orange-detail-machine-layer:focus-visible img,
+    .alarm-clock-layer img,
+    .alarm-clock-layer:hover img,
+    .alarm-clock-layer:focus-visible img,
+    .stove-top-layer img,
+    .stove-top-layer:hover img,
+    .stove-top-layer:focus-visible img,
     .scene-title span {
       opacity: 1;
       transform: none;
@@ -2241,7 +2591,16 @@
     .stand-mixer-hover-arrow,
     .coffee-machine-hover-dialogue,
     .coffee-machine-hover-panel,
-    .coffee-machine-hover-arrow {
+    .coffee-machine-hover-arrow,
+    .orange-detail-machine-hover-dialogue,
+    .orange-detail-machine-hover-panel,
+    .orange-detail-machine-hover-arrow,
+    .alarm-clock-hover-dialogue,
+    .alarm-clock-hover-panel,
+    .alarm-clock-hover-arrow,
+    .stove-top-hover-dialogue,
+    .stove-top-hover-panel,
+    .stove-top-hover-arrow {
       transition: none;
       animation: none;
     }
@@ -2253,7 +2612,13 @@
     .stand-mixer-layer:hover .stand-mixer-hover-panel,
     .stand-mixer-layer:focus-visible .stand-mixer-hover-panel,
     .coffee-machine-layer:hover .coffee-machine-hover-panel,
-    .coffee-machine-layer:focus-visible .coffee-machine-hover-panel {
+    .coffee-machine-layer:focus-visible .coffee-machine-hover-panel,
+    .orange-detail-machine-layer:hover .orange-detail-machine-hover-panel,
+    .orange-detail-machine-layer:focus-visible .orange-detail-machine-hover-panel,
+    .alarm-clock-layer:hover .alarm-clock-hover-panel,
+    .alarm-clock-layer:focus-visible .alarm-clock-hover-panel,
+    .stove-top-layer:hover .stove-top-hover-panel,
+    .stove-top-layer:focus-visible .stove-top-hover-panel {
       -webkit-clip-path: inset(0 0 0 0);
       clip-path: inset(0 0 0 0);
     }

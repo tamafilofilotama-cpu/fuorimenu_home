@@ -374,7 +374,7 @@
       speaker: 'Stefano Paganini',
       dialogue: 'il mio ruolo ... seguimi nella cucina per saperne di più',
       hoverText: 'io sono stefano paganini seguimi in cucina',
-      personSrc: '/images/stefano-paganini-figma.png',
+      personSrc: '/images/stefano-paganini-figma.svg',
       href: '/phaser'
     },
     {
