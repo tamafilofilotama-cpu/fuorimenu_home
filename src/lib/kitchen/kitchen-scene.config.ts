@@ -2,7 +2,7 @@ import type { SceneAsset } from '$lib/scene/scene-asset.types';
 
 export type KitchenChefId = 'carlo';
 
-export const kitchenAssetVersion = '20260620-scene-assets-26';
+export const kitchenAssetVersion = '20260624-scene-assets-27';
 
 const kitchenTailHeight = 1117;
 const kitchenTailY = -137;
@@ -47,6 +47,7 @@ const kitchenBackgroundFurnitureAssets: SceneAsset[] = [
   { id: 'bg-wall-cabinet-9120', kind: 'static', src: 'kitchen-figma/kitchen-bg-a.svg', x: 9120, y: 149, width: 384, height: 290, layer: 'background' },
   { id: 'bg-narrow-rack-9700', kind: 'static', src: 'kitchen-figma/kitchen-bg-9700.svg', x: 9688, y: 249, width: 220, height: 502, layer: 'background' },
   { id: 'bg-narrow-rack-10700', kind: 'static', src: 'kitchen-figma/kitchen-bg-10700.svg', x: 10610, y: 249, width: 215, height: 508, layer: 'background' },
+  { id: 'bg-slim-fixture-14000', kind: 'static', src: 'kitchen-figma/kitchen-bg-14000.svg', x: 14277, y: 82, width: 37, height: 284, layer: 'background' },
   { id: 'bg-narrow-rack-14400', kind: 'static', src: 'kitchen-figma/kitchen-bg-14400.svg', x: 14420, y: 256, width: 208, height: 498, layer: 'background' },
   { id: 'bg-utility-rack-15800', kind: 'static', src: 'kitchen-figma/kitchen-bg-15800.svg', x: 15675, y: 316, width: 252, height: 436, layer: 'background' },
   { id: 'bg-narrow-rack-19600', kind: 'static', src: 'kitchen-figma/kitchen-bg-19600.svg', x: 19545, y: 252, width: 215, height: 508, layer: 'background' },
