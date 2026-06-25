@@ -4,14 +4,20 @@
   import VolumeOffIcon from '$lib/VolumeOffIcon.svelte';
   import OfficeScene from './OfficeScene.svelte';
 
+  const audioMutedStorageKey = 'fuorimenu-audio-muted';
   let isAudioMuted = $state(false);
   const audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
 
   function toggleAudioMuted() {
     isAudioMuted = !isAudioMuted;
+    sessionStorage.setItem(audioMutedStorageKey, JSON.stringify(isAudioMuted));
   }
 
   onMount(() => {
+    const storedMuted = sessionStorage.getItem(audioMutedStorageKey);
+    if (storedMuted !== null) {
+      isAudioMuted = storedMuted === 'true';
+    }
     const hadTransition =
       sessionStorage.getItem('role-card-transition') === '1' ||
       sessionStorage.getItem('kitchen-card-transition') === '1';

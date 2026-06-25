@@ -31,6 +31,7 @@
   let isAudioGateOpening = $state(false);
   let isAudioMuted = $state(true);
   let audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
+  const audioMutedStorageKey = 'fuorimenu-audio-muted';
   let isBrandWordSharp = $state(false);
   let isAboutOpen = $state(false);
   let aboutScreenEl = $state<HTMLElement>();
@@ -916,6 +917,7 @@
   function setAudioMuted(nextMuted: boolean) {
     if (isAudioMuted === nextMuted) return;
     isAudioMuted = nextMuted;
+    sessionStorage.setItem(audioMutedStorageKey, JSON.stringify(isAudioMuted));
     if (isAudioMuted) {
       stopAllHomeAudio();
     } else {
@@ -923,6 +925,13 @@
       void unlockAmbientAudio();
     }
   }
+
+  onMount(() => {
+    const storedMuted = sessionStorage.getItem(audioMutedStorageKey);
+    if (storedMuted !== null) {
+      isAudioMuted = storedMuted === 'true';
+    }
+  });
 
   function toggleAudioMuted() {
     setAudioMuted(!isAudioMuted);

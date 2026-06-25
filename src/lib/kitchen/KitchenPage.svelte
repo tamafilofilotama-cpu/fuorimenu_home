@@ -4,14 +4,20 @@
   import VolumeOffIcon from '$lib/VolumeOffIcon.svelte';
   import KitchenScene from './KitchenScene.svelte';
 
+  const audioMutedStorageKey = 'fuorimenu-audio-muted';
   let isAudioMuted = $state(false);
   const audioLabel = $derived(isAudioMuted ? 'Audio disattivato' : 'Audio attivo');
 
   function toggleAudioMuted() {
     isAudioMuted = !isAudioMuted;
+    sessionStorage.setItem(audioMutedStorageKey, JSON.stringify(isAudioMuted));
   }
 
   onMount(() => {
+    const storedMuted = sessionStorage.getItem(audioMutedStorageKey);
+    if (storedMuted !== null) {
+      isAudioMuted = storedMuted === 'true';
+    }
     if (sessionStorage.getItem('kitchen-card-transition') !== '1') return;
     sessionStorage.removeItem('kitchen-card-transition');
 

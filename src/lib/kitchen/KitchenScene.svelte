@@ -620,12 +620,12 @@
   }
 
   async function playFaustoSecondAudio() {
-    if (isAudioMuted || dismissedTestimonialIds.fausto || !fausto2AudioEl) return;
+    if (dismissedTestimonialIds.fausto || !fausto2AudioEl) return;
 
     gsap.killTweensOf(fausto2AudioEl);
     fausto2AudioEl.pause();
     fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
-    fausto2AudioEl.muted = false;
+    fausto2AudioEl.muted = isAudioMuted;
     fausto2AudioEl.volume = 1;
     faustoSpeechPart = 2;
     testimonialRevealProgress.fausto = 0;
@@ -798,21 +798,20 @@
     setAmbientAudioVolumes();
 
     if (!isAudioMuted) {
+      setTestimonialAudioMuteState(false);
       void startAmbientAudio();
       return;
     }
 
+    setTestimonialAudioMuteState(true);
     toolShedAudioEl?.pause();
     standMixerAudioEl?.pause();
-    pauseAllTestimonialAudioForMute();
     constructionAudioEl?.pause();
     kitchenAmbientAudioEl?.pause();
     isAmbientAudioStarted = false;
   });
 
   $effect(() => {
-    if (isAudioMuted) return;
-
     kitchenTestimonials.forEach((testimonial) => {
       const state = testimonialAudioState[testimonial.id];
       const audio = getTestimonialAudioEl(testimonial);
@@ -890,6 +889,16 @@
     return getTestimonialAudioEl(testimonial);
   }
 
+  function setTestimonialAudioMuteState(muted: boolean) {
+    kitchenTestimonials.forEach((testimonial) => {
+      const audio = getTestimonialAudioEl(testimonial);
+      if (!audio) return;
+      audio.muted = muted;
+    });
+
+    if (fausto2AudioEl) fausto2AudioEl.muted = muted;
+  }
+
   function pauseAllTestimonialAudioForMute() {
     clearFaustoSecondAudioTimer();
     kitchenTestimonials.forEach((testimonial) => {
@@ -926,7 +935,6 @@
     const state = testimonialAudioState[testimonial.id];
 
     if (
-      isAudioMuted ||
       !testimonial.audioSrc ||
       state.hasUnlocked ||
       state.hasPlayed ||
@@ -980,11 +988,11 @@
   async function playTestimonialAudio(testimonial: KitchenTestimonial) {
     const audio = getTestimonialAudioEl(testimonial);
     const state = testimonialAudioState[testimonial.id];
-    if (isAudioMuted || !testimonial.audioSrc || state.hasPlayed || state.isStarting || !audio) return;
+    if (!testimonial.audioSrc || state.hasPlayed || state.isStarting || !audio) return;
 
     state.isStarting = true;
     if (state.unlockPromise) await state.unlockPromise;
-    if (isAudioMuted || state.hasPlayed || !audio) {
+    if (state.hasPlayed || !audio) {
       state.isStarting = false;
       return;
     }
@@ -1001,8 +1009,9 @@
       fausto2AudioEl.pause();
       fausto2AudioEl.currentTime = faustoSecondAudioStartTime;
       fausto2AudioEl.volume = 1;
+      fausto2AudioEl.muted = isAudioMuted;
     }
-    audio.muted = false;
+    audio.muted = isAudioMuted;
     audio.volume = 1;
     dismissedTestimonialIds[testimonial.id] = false;
     if (testimonial.id === 'fausto') faustoSpeechPart = 1;
@@ -1085,7 +1094,7 @@
 
   function onTestimonialPointerDown(event: PointerEvent, testimonial: KitchenTestimonial) {
     event.stopPropagation();
-    if (!testimonial.audioSrc || isAudioMuted) return;
+    if (!testimonial.audioSrc) return;
     testimonialAudioState[testimonial.id].hasPlayed = false;
     dismissedTestimonialIds[testimonial.id] = false;
     void playTestimonialAudio(testimonial);
